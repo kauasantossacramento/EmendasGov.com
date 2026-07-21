@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Gestor — {{ tenant.nome }} · Emendas.gov.com{% endblock %}
+
+{% block cabecalho %}
+<header class="topo">
+  <div class="container">
+    {% if tenant.brasao %}
+      <img class="brasao" src="{{ tenant.brasao.url }}" alt="Brasão de {{ tenant.nome }}">
+    {% endif %}
+    <div class="titulo">
+      <h1>Painel do Gestor · {{ tenant.nome }}</h1>
+      <p>Emendas.gov.com — módulo do gestor municipal</p>
+    </div>
+    <nav>
+      <a href="{% url 'gestor:painel' tenant.slug %}">Visão geral</a>
+      <a href="{% url 'gestor:emendas' tenant.slug %}">Emendas e empenhos</a>
+      <a href="{% url 'gestor:configuracoes' tenant.slug %}">Configurações</a>
+      <a href="/{{ tenant.slug }}/" target="_blank">Ver portal ↗</a>
+      <a href="{% url 'gestor:logout' tenant.slug %}">Sair</a>
+    </nav>
+  </div>
+</header>
+<div class="faixa-marca"></div>
+{% endblock %}
+
+{% block conteudo %}
+<div class="container">
+  {% if messages %}
+    {% for mensagem in messages %}
+      <div class="aviso" style="border-left-color: var(--verde); background:#EFFAF3;">{{ mensagem }}</div>
+    {% endfor %}
+  {% endif %}
+  {% block gestor_conteudo %}{% endblock %}
+</div>
+{% endblock %}

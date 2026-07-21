@@ -1,0 +1,65 @@
+{% extends "gestor/base_gestor.html" %}
+{% load humanize %}
+
+{% block gestor_conteudo %}
+<h2 class="titulo-secao">Visão geral da conformidade</h2>
+<p class="subtitulo-secao">Acompanhe as pendências de rastreabilidade exigidas pelo PNCP.</p>
+
+<div class="grade-kpi">
+  <div class="cartao kpi">
+    <div class="rotulo">Emendas importadas</div>
+    <div class="valor">{{ total_emendas }}</div>
+  </div>
+  <div class="cartao kpi">
+    <div class="rotulo">Empenhos registrados</div>
+    <div class="valor">{{ total_empenhos }}</div>
+  </div>
+  <div class="cartao kpi kpi-amarelo">
+    <div class="rotulo">Aguardando vínculo</div>
+    <div class="valor">{{ total_pendentes }}</div>
+  </div>
+  <div class="cartao kpi" style="border-top-color: var(--vermelho);">
+    <div class="rotulo">Prazo estourado (30+ dias)</div>
+    <div class="valor">{{ total_estourados }}</div>
+  </div>
+</div>
+
+{% if estourados %}
+<div class="aviso critico">
+  <strong>Atenção:</strong> os empenhos abaixo foram emitidos há mais de 30 dias e ainda
+  não possuem o número de controle do PNCP. Regularize o vínculo contratual para manter
+  a conformidade.
+</div>
+<div class="cartao" style="padding:0; overflow:hidden;">
+  <div class="tabela-rolagem">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Empenho</th><th>Emenda</th><th>Data</th><th>Dias</th>
+          <th>Fornecedor</th><th style="text-align:center;">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for empenho in estourados %}
+        <tr>
+          <td><strong>{{ empenho.numero }}</strong></td>
+          <td>{{ empenho.emenda.numero }}/{{ empenho.emenda.ano }}</td>
+          <td>{{ empenho.data_empenho|date:"d/m/Y" }}</td>
+          <td><span class="selo alerta">{{ empenho.dias_desde_emissao }} dias</span></td>
+          <td>{{ empenho.fornecedor_nome|default:"—" }}</td>
+          <td style="text-align:center;">
+            <a class="botao pequeno" href="{% url 'gestor:vincular' tenant.slug empenho.pk %}">Vincular agora</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="cartao vazio">
+  <div class="icone">✅</div>
+  <p><strong>Tudo em dia!</strong> Nenhum empenho com prazo de vínculo PNCP estourado.</p>
+</div>
+{% endif %}
+{% endblock %}

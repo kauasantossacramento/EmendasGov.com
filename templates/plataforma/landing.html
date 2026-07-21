@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block cabecalho %}
+<header class="topo">
+  <div class="container">
+    <div class="titulo">
+      <h1>Emendas<span style="color:var(--amarelo);">.gov</span>.com</h1>
+      <p>Transparência de Emendas Parlamentares</p>
+    </div>
+    <nav>
+      <a href="#municipios">Municípios</a>
+      <a href="#como-funciona">Como funciona</a>
+    </nav>
+  </div>
+</header>
+<div class="faixa-marca"></div>
+<section class="hero">
+  <div class="container">
+    <h1>Do Congresso ao seu bairro:<br>siga <span class="dourado">cada centavo</span> das emendas parlamentares.</h1>
+    <p>
+      O Emendas.gov.com conecta o Transferegov, o Portal da Transparência e o PNCP
+      para mostrar ao cidadão a jornada completa do recurso federal — da emenda ao contrato.
+    </p>
+    <a class="botao" style="background:var(--amarelo); color:var(--azul-escuro);" href="#municipios">Encontrar meu município</a>
+  </div>
+</section>
+{% endblock %}
+
+{% block conteudo %}
+<div class="container">
+  <h2 id="municipios" class="titulo-secao">Portais municipais</h2>
+  <p class="subtitulo-secao">Escolha o seu município para acessar o painel de transparência.</p>
+  <div class="grade-municipios">
+    {% for municipio in municipios %}
+      <a class="cartao cartao-municipio" href="/{{ municipio.slug }}/" data-spinner>
+        {% if municipio.brasao %}
+          <img src="{{ municipio.brasao.url }}" alt="Brasão de {{ municipio.nome }}" style="height:64px; margin-bottom:10px;">
+        {% else %}
+          <div style="font-size:2rem; margin-bottom:8px;">🏛</div>
+        {% endif %}
+        <strong>{{ municipio.nome }}</strong>{% if municipio.uf %}<br><small>{{ municipio.uf }}</small>{% endif %}
+      </a>
+    {% empty %}
+      <div class="cartao vazio" style="grid-column: 1 / -1;">
+        <div class="icone">🏛</div>
+        <p><strong>Nenhum portal municipal publicado ainda.</strong><br>
+        Sua prefeitura pode aderir ao Emendas.gov.com e dar transparência total às emendas recebidas.</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <h2 id="como-funciona" class="titulo-secao">Como funciona</h2>
+  <div class="grade-kpi">
+    <div class="cartao kpi">
+      <div class="rotulo">1 · Origem do recurso</div>
+      <div class="valor" style="font-size:1.05rem;">Transferegov / CGU</div>
+      <p style="color:var(--texto-suave); font-size:.88rem;">As emendas destinadas ao município são importadas automaticamente das bases federais.</p>
+    </div>
+    <div class="cartao kpi kpi-amarelo">
+      <div class="rotulo">2 · Reserva do recurso</div>
+      <div class="valor" style="font-size:1.05rem;">Empenho municipal</div>
+      <p style="color:var(--texto-suave); font-size:.88rem;">Cada empenho mostra fornecedor, valores empenhados, liquidados e pagos.</p>
+    </div>
+    <div class="cartao kpi kpi-verde">
+      <div class="rotulo">3 · Execução do recurso</div>
+      <div class="valor" style="font-size:1.05rem;">Contrato no PNCP</div>
+      <p style="color:var(--texto-suave); font-size:.88rem;">O vínculo com o Portal Nacional de Contratações Públicas fecha o ciclo da rastreabilidade.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

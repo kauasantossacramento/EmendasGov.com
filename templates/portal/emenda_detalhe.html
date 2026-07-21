@@ -1,0 +1,77 @@
+{% extends "portal/base_portal.html" %}
+{% load humanize %}
+{% block titulo %}Emenda {{ emenda.numero }}/{{ emenda.ano }} — {{ tenant.nome }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Trilha de navegação">
+  <a href="{% url 'portal:dashboard' tenant.slug %}">Home</a> ›
+  <a href="{% url 'portal:pesquisa' tenant.slug %}">Emendas</a> ›
+  <span class="atual">Emenda {{ emenda.numero }}/{{ emenda.ano }}</span>
+</nav>
+{% endblock %}
+
+{% block portal_conteudo %}
+<h2 class="titulo-secao">Emenda {{ emenda.numero }}/{{ emenda.ano }}</h2>
+<p class="subtitulo-secao">
+  {{ emenda.parlamentar }} · {{ emenda.get_area_aplicacao_display }}
+  {% if emenda.objeto %}<br>{{ emenda.objeto }}{% endif %}
+</p>
+
+{# ---------- Cards de totalização financeira ---------- #}
+<div class="grade-kpi">
+  <div class="cartao kpi">
+    <div class="rotulo">Valor do orçamento</div>
+    <div class="valor">R$ {{ emenda.valor_total|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="cartao kpi">
+    <div class="rotulo">Valor empenhado</div>
+    <div class="valor">R$ {{ emenda.total_empenhado|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="cartao kpi kpi-amarelo">
+    <div class="rotulo">Valor liquidado</div>
+    <div class="valor">R$ {{ emenda.total_liquidado|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="cartao kpi kpi-verde">
+    <div class="rotulo">Valor pago</div>
+    <div class="valor">R$ {{ emenda.total_pago|floatformat:2|intcomma }}</div>
+  </div>
+</div>
+
+<div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin: 6px 0 14px;">
+  <h3 style="margin:0;">Empenhos vinculados a esta emenda</h3>
+  <a class="botao secundario pequeno"
+     href="{% url 'portal:exportar_empenhos' tenant.slug emenda.pk %}">⬇ Exportar empenhos</a>
+</div>
+
+{# ---------- Accordion de empenhos ---------- #}
+{% if emenda.empenhos.all %}
+<div class="accordion">
+  {% for empenho in emenda.empenhos.all %}
+  <details>
+    <summary>
+      <strong>Empenho {{ empenho.numero }}</strong>
+      <span style="color:var(--texto-suave); font-weight:400;">{{ empenho.fornecedor_nome|default:"Fornecedor não informado" }}</span>
+      <span style="margin-left:auto; font-variant-numeric:tabular-nums;">R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}</span>
+    </summary>
+    <div class="conteudo">
+      <div class="matriz-valores" style="margin-bottom: 14px;">
+        <div class="celula"><div class="rotulo">Empenhado</div><div class="valor">R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}</div></div>
+        <div class="celula"><div class="rotulo">Liquidado</div><div class="valor">R$ {{ empenho.valor_liquidado|floatformat:2|intcomma }}</div></div>
+        <div class="celula"><div class="rotulo">Pago</div><div class="valor">R$ {{ empenho.valor_pago|floatformat:2|intcomma }}</div></div>
+      </div>
+      <a class="botao pequeno" data-spinner
+         href="{% url 'portal:empenho_detalhe' tenant.slug emenda.pk empenho.pk %}">
+        Ver detalhamento completo →
+      </a>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<div class="cartao vazio">
+  <div class="icone">📄</div>
+  <p><strong>Ainda não recebemos os empenhos desta emenda.</strong><br>
+  Nossos sistemas atualizam as informações diariamente direto de Brasília. Tente novamente amanhã.</p>
+</div>
+{% endif %}
+{% endblock %}

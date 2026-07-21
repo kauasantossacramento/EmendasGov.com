@@ -1,0 +1,99 @@
+{% extends "portal/base_portal.html" %}
+{% load humanize %}
+{% block titulo %}Empenho {{ empenho.numero }} — {{ tenant.nome }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Trilha de navegação">
+  <a href="{% url 'portal:dashboard' tenant.slug %}">Home</a> ›
+  <a href="{% url 'portal:pesquisa' tenant.slug %}">Emendas</a> ›
+  <a href="{% url 'portal:emenda_detalhe' tenant.slug emenda.pk %}">Emenda {{ emenda.numero }}/{{ emenda.ano }}</a> ›
+  <span class="atual">Empenho {{ empenho.numero }}</span>
+</nav>
+{% endblock %}
+
+{% block portal_conteudo %}
+<h2 class="titulo-secao">Empenho {{ empenho.numero }}</h2>
+<p class="subtitulo-secao">
+  {% if empenho.status_rastreabilidade == "vinculado" %}
+    <span class="selo conforme">✔ Em Conformidade — contrato vinculado ao PNCP</span>
+  {% elif empenho.status_rastreabilidade == "cancelado" %}
+    <span class="selo cancelado">Cancelado</span>
+  {% else %}
+    <span class="selo pendente">Pendente de Vínculo Contratual</span>
+  {% endif %}
+</p>
+
+{# ---------- Metadados contábeis e de execução ---------- #}
+<div class="cartao" style="margin-bottom: 18px;">
+  <h3>Dados contábeis e de execução</h3>
+  <dl class="definicoes">
+    <div><dt>Data do empenho</dt><dd>{{ empenho.data_empenho|date:"d/m/Y" }}</dd></div>
+    <div><dt>Unidade executora</dt><dd>{{ empenho.unidade_executora|default:"—" }}</dd></div>
+    <div><dt>Projeto/Atividade</dt><dd>{{ empenho.projeto_atividade|default:"—" }}</dd></div>
+    <div><dt>Elemento de despesa</dt><dd>{{ empenho.elemento_despesa|default:"—" }}</dd></div>
+    <div><dt>Fonte</dt><dd>{{ empenho.fonte|default:"—" }}</dd></div>
+    <div><dt>Subfonte</dt><dd>{{ empenho.subfonte|default:"—" }}</dd></div>
+    <div><dt>Fornecedor (CNPJ)</dt><dd>{{ empenho.fornecedor_cnpj|default:"—" }}</dd></div>
+    <div><dt>Fornecedor (razão social)</dt><dd>{{ empenho.fornecedor_nome|default:"—" }}</dd></div>
+    {% if empenho.processo_administrativo %}
+    <div><dt>Processo administrativo</dt><dd>{{ empenho.processo_administrativo }}</dd></div>
+    {% endif %}
+  </dl>
+</div>
+
+{# ---------- Matriz de valores ---------- #}
+<div class="cartao" style="margin-bottom: 18px;">
+  <h3>Matriz de valores</h3>
+  <div class="matriz-valores">
+    <div class="celula"><div class="rotulo">Valor empenhado</div><div class="valor">R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}</div></div>
+    <div class="celula"><div class="rotulo">Valor liquidado</div><div class="valor">R$ {{ empenho.valor_liquidado|floatformat:2|intcomma }}</div></div>
+    <div class="celula"><div class="rotulo">Valor pago</div><div class="valor">R$ {{ empenho.valor_pago|floatformat:2|intcomma }}</div></div>
+    <div class="celula"><div class="rotulo">A liquidar</div><div class="valor">R$ {{ empenho.valor_a_liquidar|floatformat:2|intcomma }}</div></div>
+    <div class="celula"><div class="rotulo">A pagar</div><div class="valor">R$ {{ empenho.valor_a_pagar|floatformat:2|intcomma }}</div></div>
+  </div>
+</div>
+
+{# ---------- Objeto ---------- #}
+<div class="cartao">
+  <h3>Objeto</h3>
+  <p style="margin:0;">{{ empenho.objeto|default:"Descrição não informada."|linebreaksbr }}</p>
+</div>
+
+{# ---------- Bloco de Transparência Contratual (PNCP) ---------- #}
+<div class="bloco-pncp">
+  <h3>🛡 Transparência Contratual — Conformidade PNCP</h3>
+  {% if contratos %}
+    {% for contrato in contratos %}
+    <dl class="definicoes" style="margin-bottom: 16px;">
+      <div><dt>Objeto da contratação</dt><dd>{{ empenho.objeto|default:"—"|truncatechars:180 }}</dd></div>
+      <div><dt>Modalidade</dt><dd>{{ contrato.get_modalidade_display|default:"—" }}</dd></div>
+      <div><dt>Nº do contrato / ano</dt><dd>{{ contrato.numero_contrato }}</dd></div>
+      <div><dt>ID PNCP</dt><dd>{{ contrato.id_pncp|default:"—" }}</dd></div>
+      {% if contrato.data_assinatura %}
+      <div><dt>Data de assinatura</dt><dd>{{ contrato.data_assinatura|date:"d/m/Y" }}</dd></div>
+      {% endif %}
+    </dl>
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      {% if contrato.url_pncp %}
+        <a class="botao verde" href="{{ contrato.url_pncp }}" target="_blank" rel="noopener">
+          Visualizar Contrato no PNCP ↗
+        </a>
+      {% endif %}
+      {% if contrato.url_edital %}
+        <a class="botao secundario" href="{{ contrato.url_edital }}" target="_blank" rel="noopener">Ver edital ↗</a>
+      {% endif %}
+      {% if contrato.documento_anexo %}
+        <a class="botao secundario" href="{{ contrato.documento_anexo.url }}" download>⬇ Termo de Referência / Edital</a>
+      {% endif %}
+    </div>
+    {% if not forloop.last %}<hr style="border:none; border-top:1px solid var(--borda); margin:20px 0;">{% endif %}
+    {% endfor %}
+  {% else %}
+    <p style="margin:0;">
+      Este empenho ainda está <strong>pendente de vínculo contratual</strong> no Portal
+      Nacional de Contratações Públicas. Assim que o município registrar o contrato,
+      o link oficial do PNCP aparecerá aqui.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

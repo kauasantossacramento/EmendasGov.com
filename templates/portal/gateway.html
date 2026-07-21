@@ -1,0 +1,27 @@
+{% extends "portal/base_portal.html" %}
+{% block titulo %}Verificação de segurança — {{ tenant.nome }}{% endblock %}
+
+{% block cabecalho_extra %}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endblock %}
+
+{% block portal_conteudo %}
+<div style="max-width: 560px; margin: 48px auto;">
+  <div class="cartao" style="text-align: center;">
+    <h2 class="titulo-secao">Verificação de segurança</h2>
+    <p class="subtitulo-secao">
+      Para proteger os dados públicos contra acessos automatizados,
+      confirme que você não é um robô antes de continuar.
+    </p>
+
+    {% if erro %}<div class="aviso critico">{{ erro }}</div>{% endif %}
+
+    <form method="post" data-spinner style="display: grid; gap: 18px; justify-items: center;">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="g-recaptcha" data-sitekey="{{ RECAPTCHA_SITE_KEY }}"></div>
+      <button type="submit" class="botao">Acessar os dados</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

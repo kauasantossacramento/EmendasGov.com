@@ -1,0 +1,191 @@
+{% extends "portal/base_portal.html" %}
+{% load humanize %}
+
+{% block portal_conteudo %}
+{% if tenant.avisos %}<div class="aviso">{{ tenant.avisos|safe }}</div>{% endif %}
+
+<div style="display:flex; align-items:end; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+  <div>
+    <h2 class="titulo-secao">Painel de Emendas Parlamentares · {{ ano }}</h2>
+    <p class="subtitulo-secao">Acompanhe a jornada de cada recurso federal: da emenda ao contrato.</p>
+  </div>
+  <form method="get" class="campo" data-spinner>
+    <label for="seletor-ano">Exercício</label>
+    <select id="seletor-ano" name="ano" onchange="this.form.submit()">
+      {% for a in anos %}
+        <option value="{{ a }}" {% if a == ano %}selected{% endif %}>{{ a }}</option>
+      {% empty %}
+        <option>{{ ano }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+{% if tenant.texto_introdutorio %}
+  <div class="cartao" style="margin-top:8px;">{{ tenant.texto_introdutorio|safe }}</div>
+{% endif %}
+
+{# ---------- Faixa de KPIs ---------- #}
+<div class="grade-kpi">
+  <div class="cartao kpi">
+    <div class="rotulo">Total de emendas recebidas</div>
+    <div class="valor">{{ kpi_total_emendas }} <small>emenda{{ kpi_total_emendas|pluralize }}</small></div>
+  </div>
+  <div class="cartao kpi kpi-verde">
+    <div class="rotulo">Volume financeiro total</div>
+    <div class="valor">R$ {{ kpi_volume_total|floatformat:2|intcomma }}</div>
+  </div>
+  <div class="cartao kpi kpi-amarelo">
+    <div class="rotulo">Taxa de execução</div>
+    <div class="valor">{{ kpi_taxa_execucao }}% <small>vinculado a contratos</small></div>
+  </div>
+  <div class="cartao kpi">
+    <div class="rotulo">Área com maior destinação</div>
+    <div class="valor">
+      {% if kpi_area_top %}{{ kpi_area_top.nome }} <small>{{ kpi_area_top.percentual }}%</small>{% else %}—{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if kpi_total_emendas == 0 %}
+  <div class="cartao vazio">
+    <div class="icone">🗂️</div>
+    <p><strong>Ainda não recebemos os dados deste exercício.</strong><br>
+    Nossos sistemas atualizam as informações diariamente direto de Brasília. Tente novamente amanhã.</p>
+  </div>
+{% else %}
+
+{# ---------- Galeria de gráficos ---------- #}
+<div class="grade-graficos">
+  <div class="cartao largura-total">
+    <h3>Evolução temporal — recursos recebidos mês a mês</h3>
+    <canvas id="grafico-mensal" height="90"></canvas>
+  </div>
+  <div class="cartao">
+    <h3>Ranking de parlamentares (Top 5)</h3>
+    <canvas id="grafico-ranking"></canvas>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer; color:var(--tenant-primaria); font-weight:700;">Ver todos</summary>
+      <div class="tabela-rolagem" style="margin-top:10px;">
+        <table class="tabela">
+          <thead><tr><th>Parlamentar</th><th class="numero">Emendas</th><th class="numero">Total (R$)</th></tr></thead>
+          <tbody>
+            {% for r in ranking_completo %}
+            <tr>
+              <td>{{ r.parlamentar }}</td>
+              <td class="numero">{{ r.qtd }}</td>
+              <td class="numero">{{ r.total|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+  <div class="cartao">
+    <h3>Distribuição por área de aplicação</h3>
+    <canvas id="grafico-areas"></canvas>
+  </div>
+  <div class="cartao largura-total">
+    <h3>Rastreabilidade do recurso — do parlamentar ao fornecedor</h3>
+    <p class="subtitulo-secao" style="font-size:.85rem;">Fluxos com largura proporcional aos valores (parlamentar → município → contratos/fornecedores).</p>
+    <canvas id="grafico-sankey" height="120"></canvas>
+  </div>
+</div>
+
+<div style="text-align:center; margin: 8px 0 30px;">
+  <a class="botao" href="{% url 'portal:pesquisa' tenant.slug %}" data-spinner>🔎 Consultar todas as emendas</a>
+</div>
+{% endif %}
+
+{{ graficos_json|json_script:"dados-graficos" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.14.0/dist/chartjs-chart-sankey.min.js"></script>
+<script>
+(function () {
+  const el = document.getElementById("dados-graficos");
+  if (!el || typeof Chart === "undefined") return;
+  const dados = JSON.parse(el.textContent);
+  const estilo = getComputedStyle(document.documentElement);
+  const azul = estilo.getPropertyValue("--tenant-primaria").trim() || "#1351B4";
+  const verde = estilo.getPropertyValue("--tenant-secundaria").trim() || "#00884A";
+  const amarelo = estilo.getPropertyValue("--tenant-destaque").trim() || "#FFCD07";
+  const paleta = [azul, verde, amarelo, "#5992ED", "#4CAF7D", "#B78D00", "#8A63D2"];
+  const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const mensalCtx = document.getElementById("grafico-mensal");
+  if (mensalCtx) new Chart(mensalCtx, {
+    type: "line",
+    data: {
+      labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+      datasets: [{
+        label: "Recursos recebidos",
+        data: dados.mensal,
+        borderColor: azul,
+        backgroundColor: azul + "22",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: (c) => reais(c.parsed.y) } } },
+      scales: { y: { ticks: { callback: (v) => "R$ " + (v / 1000).toLocaleString("pt-BR") + " mil" } } },
+    },
+  });
+
+  const rankingCtx = document.getElementById("grafico-ranking");
+  if (rankingCtx) new Chart(rankingCtx, {
+    type: "bar",
+    data: {
+      labels: dados.ranking.labels,
+      datasets: [{ data: dados.ranking.valores, backgroundColor: azul, borderRadius: 6 }],
+    },
+    options: {
+      indexAxis: "y",
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: (c) => reais(c.parsed.x) } } },
+      scales: { x: { ticks: { callback: (v) => "R$ " + (v / 1000).toLocaleString("pt-BR") + " mil" } } },
+    },
+  });
+
+  const areasCtx = document.getElementById("grafico-areas");
+  if (areasCtx) new Chart(areasCtx, {
+    type: "doughnut",
+    data: {
+      labels: dados.areas.labels,
+      datasets: [{ data: dados.areas.valores, backgroundColor: paleta, borderWidth: 2 }],
+    },
+    options: {
+      cutout: "62%",
+      plugins: { legend: { position: "bottom" },
+        tooltip: { callbacks: { label: (c) => c.label + ": " + reais(c.parsed) } } },
+    },
+  });
+
+  const sankeyCtx = document.getElementById("grafico-sankey");
+  if (sankeyCtx && dados.sankey.length) new Chart(sankeyCtx, {
+    type: "sankey",
+    data: {
+      datasets: [{
+        data: dados.sankey,
+        colorFrom: () => azul,
+        colorTo: () => verde,
+        colorMode: "gradient",
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      plugins: { tooltip: { callbacks: {
+        label: (c) => c.raw.from + " → " + c.raw.to + ": " + reais(c.raw.flow),
+      } } },
+    },
+  });
+})();
+</script>
+{% endblock %}

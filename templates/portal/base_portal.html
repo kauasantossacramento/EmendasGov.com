@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block titulo %}{{ tenant.nome }} — Transparência de Emendas{% endblock %}
+
+{% block estilos_tenant %}
+{% if tenant %}
+<style>
+  :root {
+    --tenant-primaria: {{ tenant.cor_primaria }};
+    --tenant-secundaria: {{ tenant.cor_secundaria }};
+    --tenant-destaque: {{ tenant.cor_destaque }};
+  }
+</style>
+{% endif %}
+{% endblock %}
+
+{% block cabecalho %}
+<header class="topo">
+  <div class="container">
+    {% if tenant.brasao %}
+      <img class="brasao" src="{{ tenant.brasao.url }}" alt="Brasão de {{ tenant.nome }}">
+    {% endif %}
+    <div class="titulo">
+      <h1>{{ tenant.nome }}{% if tenant.uf %} · {{ tenant.uf }}{% endif %}</h1>
+      <p>Portal de Transparência de Emendas Parlamentares</p>
+    </div>
+    <nav>
+      <a href="{% url 'portal:dashboard' tenant.slug %}">Painel</a>
+      <a href="{% url 'portal:pesquisa' tenant.slug %}" data-spinner>Consultar emendas</a>
+    </nav>
+  </div>
+</header>
+<div class="faixa-marca"></div>
+{% endblock %}
+
+{% block conteudo %}
+<div class="container">
+  {% block breadcrumbs %}{% endblock %}
+  {% block portal_conteudo %}{% endblock %}
+</div>
+
+{# ---------- Assistente de Transparência IA ---------- #}
+{% if tenant %}
+<button id="fab-chat" class="fab-chat" aria-label="Abrir assistente de transparência">
+  💬
+  <span class="dica">Dúvidas sobre as emendas? Pergunte aqui!</span>
+</button>
+<aside id="chat-drawer" class="chat-drawer"
+       data-url="{% url 'portal:chat_assistente' tenant.slug %}"
+       data-csrf="{{ csrf_token }}">
+  <div class="chat-cabecalho">
+    <h4>Assistente de Transparência</h4>
+    <button class="fechar" aria-label="Fechar chat">×</button>
+  </div>
+  <div class="chat-mensagens">
+    <div class="msg ia">Olá! Sou o assistente de transparência de {{ tenant.nome }}. Posso explicar como os recursos das emendas parlamentares estão sendo aplicados aqui no município. Como posso ajudar?</div>
+  </div>
+  <div class="chat-chips">
+    <button type="button">Qual parlamentar enviou mais recursos este ano?</button>
+    <button type="button">Quanto foi investido em Saúde?</button>
+    <button type="button">Como consulto uma emenda específica?</button>
+  </div>
+  <form class="chat-entrada">
+    <input type="text" placeholder="Escreva sua pergunta…" maxlength="500" autocomplete="off">
+    <button type="submit" class="botao pequeno">Enviar</button>
+  </form>
+</aside>
+{% endif %}
+{% endblock %}

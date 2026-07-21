@@ -1,0 +1,116 @@
+{% extends "portal/base_portal.html" %}
+{% load humanize %}
+{% block titulo %}Consulta de emendas — {{ tenant.nome }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Trilha de navegação">
+  <a href="{% url 'portal:dashboard' tenant.slug %}">Home</a> ›
+  <span class="atual">Consulta de emendas</span>
+</nav>
+{% endblock %}
+
+{% block portal_conteudo %}
+<h2 class="titulo-secao">Consulta de emendas parlamentares</h2>
+<p class="subtitulo-secao">Filtre por exercício, parlamentar ou fornecedor e acompanhe cada recurso.</p>
+
+<div class="cartao" style="margin-bottom: 20px;">
+  <form method="get" class="filtros" data-spinner>
+    <div class="campo">
+      <label for="f-ano">Exercício (ano)</label>
+      <select id="f-ano" name="ano">
+        <option value="">Todos</option>
+        {% for a in anos %}
+          <option value="{{ a }}" {% if request.GET.ano == a|stringformat:"s" %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="f-parlamentar">Parlamentar</label>
+      <select id="f-parlamentar" name="parlamentar">
+        <option value="">Todos</option>
+        {% for p in parlamentares %}
+          <option value="{{ p }}" {% if request.GET.parlamentar == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="f-razao">Razão social / CNPJ</label>
+      <input id="f-razao" type="text" name="razao_social" value="{{ request.GET.razao_social }}" placeholder="Ex.: Construtora…">
+    </div>
+    <div class="campo">
+      <label for="f-fornecedor">Fornecedor / OSCIP</label>
+      <input id="f-fornecedor" type="text" name="fornecedor" value="{{ request.GET.fornecedor }}" placeholder="Nome do fornecedor">
+    </div>
+    <div class="campo">
+      <label for="f-porpagina">Itens por página</label>
+      <select id="f-porpagina" name="por_pagina">
+        <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10</option>
+        <option value="15" {% if por_pagina == 15 %}selected{% endif %}>15</option>
+        <option value="20" {% if por_pagina == 20 %}selected{% endif %}>20</option>
+      </select>
+    </div>
+    <div class="campo" style="display:flex; gap:10px;">
+      <button type="submit" class="botao">Pesquisar</button>
+      <a class="botao secundario"
+         href="{% url 'portal:exportar_emendas' tenant.slug %}?{{ querystring }}">⬇ Exportar</a>
+    </div>
+  </form>
+</div>
+
+<div class="cartao" style="padding: 0; overflow: hidden;">
+  <div class="tabela-rolagem">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Nº da emenda</th>
+          <th>Parlamentar</th>
+          <th>Exercício</th>
+          <th class="numero">Orçamento (R$)</th>
+          <th style="text-align:center;">Detalhes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for emenda in pagina %}
+        <tr>
+          <td><strong>{{ emenda.numero }}</strong></td>
+          <td>{{ emenda.parlamentar }}</td>
+          <td>{{ emenda.ano }}</td>
+          <td class="numero">{{ emenda.valor_total|floatformat:2|intcomma }}</td>
+          <td style="text-align:center;">
+            <a href="{% url 'portal:emenda_detalhe' tenant.slug emenda.pk %}"
+               title="Ver detalhes da emenda {{ emenda.numero }}" data-spinner
+               aria-label="Detalhes da emenda {{ emenda.numero }}">👁</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5">
+            <div class="vazio">
+              <div class="icone">🔍</div>
+              <p><strong>Nenhuma emenda encontrada com estes filtros.</strong><br>
+              Experimente ampliar a busca — nossos sistemas atualizam as informações diariamente direto de Brasília.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if pagina.paginator.num_pages > 1 %}
+<nav class="paginacao" aria-label="Paginação">
+  {% if pagina.has_previous %}
+    <a href="?{{ querystring }}&pagina={{ pagina.previous_page_number }}">‹ Anterior</a>
+  {% endif %}
+  {% for n in pagina.paginator.get_elided_page_range %}
+    {% if n == pagina.number %}<span class="atual">{{ n }}</span>
+    {% elif n == pagina.paginator.ELLIPSIS %}<span>…</span>
+    {% else %}<a href="?{{ querystring }}&pagina={{ n }}">{{ n }}</a>{% endif %}
+  {% endfor %}
+  {% if pagina.has_next %}
+    <a href="?{{ querystring }}&pagina={{ pagina.next_page_number }}">Próxima ›</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endblock %}

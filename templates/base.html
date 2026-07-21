@@ -1,0 +1,43 @@
+{% load static %}<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Emendas.gov.com — Transparência de Emendas Parlamentares{% endblock %}</title>
+  <meta name="description" content="Portal de transparência de emendas parlamentares: da emenda federal ao contrato no PNCP.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/emendasgov.css' %}">
+  {% block estilos_tenant %}{% endblock %}
+  {% block cabecalho_extra %}{% endblock %}
+</head>
+<body>
+  <div id="spinner-overlay" class="spinner-overlay" aria-live="polite">
+    <div class="spinner" role="status"></div>
+    <p>Aguarde…</p>
+  </div>
+
+  {% block cabecalho %}{% endblock %}
+
+  <main class="conteudo">
+    {% block conteudo %}{% endblock %}
+  </main>
+
+  <footer class="rodape">
+    <div class="container">
+      <div>
+        <strong>Emendas.gov.com</strong> — Transparência de Emendas Parlamentares<br>
+        Da emenda federal ao contrato: rastreabilidade completa do recurso público.
+      </div>
+      <div>
+        Dados oficiais: <a href="https://portaldatransparencia.gov.br" rel="noopener" target="_blank">Portal da Transparência</a> ·
+        <a href="https://www.gov.br/transferegov" rel="noopener" target="_blank">Transferegov</a> ·
+        <a href="https://pncp.gov.br" rel="noopener" target="_blank">PNCP</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{% static 'js/portal.js' %}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

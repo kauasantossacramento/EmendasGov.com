@@ -1,0 +1,75 @@
+{% extends "gestor/base_gestor.html" %}
+{% load humanize %}
+
+{% block gestor_conteudo %}
+<nav class="breadcrumbs" aria-label="Trilha de navegação">
+  <a href="{% url 'gestor:painel' tenant.slug %}">Visão geral</a> ›
+  <a href="{% url 'gestor:emendas' tenant.slug %}">Emendas e empenhos</a> ›
+  <span class="atual">Vincular empenho {{ empenho.numero }}</span>
+</nav>
+
+<h2 class="titulo-secao">Rastreabilidade do empenho {{ empenho.numero }}</h2>
+<p class="subtitulo-secao">
+  Emenda {{ empenho.emenda.numero }}/{{ empenho.emenda.ano }} · {{ empenho.emenda.parlamentar }} ·
+  Empenhado: R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}
+</p>
+
+{% if empenho.prazo_pncp_estourado %}
+<div class="aviso critico">
+  <strong>Prazo estourado:</strong> este empenho foi emitido há {{ empenho.dias_desde_emissao }} dias
+  e ainda não possui o número de controle do PNCP. Regularize o vínculo o quanto antes.
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" data-spinner class="cartao" style="display:grid; gap:16px; max-width: 720px;">
+  {% csrf_token %}
+
+  <div class="campo">
+    <label for="{{ form.processo_administrativo.id_for_label }}">Nº/Ano do processo administrativo</label>
+    {{ form.processo_administrativo }}
+    {{ form.processo_administrativo.errors }}
+  </div>
+
+  <div class="filtros">
+    <div class="campo">
+      <label for="{{ form.numero_contrato.id_for_label }}">Nº/Ano do contrato</label>
+      {{ form.numero_contrato }}
+      {{ form.numero_contrato.errors }}
+    </div>
+    <div class="campo">
+      <label for="{{ form.modalidade.id_for_label }}">Modalidade</label>
+      {{ form.modalidade }}
+    </div>
+    <div class="campo">
+      <label for="{{ form.data_assinatura.id_for_label }}">Data de assinatura</label>
+      {{ form.data_assinatura }}
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="{{ form.id_pncp.id_for_label }}">ID PNCP (número de controle)</label>
+    {{ form.id_pncp }}
+  </div>
+
+  <div class="campo">
+    <label for="{{ form.url_pncp.id_for_label }}">Link (URL) direto do PNCP</label>
+    {{ form.url_pncp }}
+    {{ form.url_pncp.errors }}
+  </div>
+
+  <div class="campo">
+    <label for="{{ form.url_edital.id_for_label }}">Link do edital</label>
+    {{ form.url_edital }}
+  </div>
+
+  <div class="campo">
+    <label for="{{ form.documento_anexo.id_for_label }}">Documento anexo (Termo de Referência / Edital)</label>
+    {{ form.documento_anexo }}
+  </div>
+
+  <div style="display:flex; gap:12px;">
+    <button type="submit" class="botao verde">Salvar vínculo contratual</button>
+    <a class="botao secundario" href="{% url 'gestor:emendas' tenant.slug %}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

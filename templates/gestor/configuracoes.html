@@ -1,0 +1,57 @@
+{% extends "gestor/base_gestor.html" %}
+
+{% block gestor_conteudo %}
+<h2 class="titulo-secao">Configurações do portal (white-label)</h2>
+<p class="subtitulo-secao">Personalize o brasão, as cores e os textos exibidos aos cidadãos.</p>
+
+<form method="post" enctype="multipart/form-data" data-spinner class="cartao" style="display:grid; gap:18px; max-width: 760px;">
+  {% csrf_token %}
+
+  <div class="campo">
+    <label for="{{ form.brasao.id_for_label }}">Brasão / logo da Prefeitura</label>
+    {% if tenant.brasao %}
+      <p><img src="{{ tenant.brasao.url }}" alt="Brasão atual" style="height:64px;"></p>
+    {% endif %}
+    {{ form.brasao }}
+    {{ form.brasao.errors }}
+  </div>
+
+  <div class="filtros">
+    <div class="campo">
+      <label for="{{ form.cor_primaria.id_for_label }}">Cor primária</label>
+      {{ form.cor_primaria }}
+    </div>
+    <div class="campo">
+      <label for="{{ form.cor_secundaria.id_for_label }}">Cor secundária</label>
+      {{ form.cor_secundaria }}
+    </div>
+    <div class="campo">
+      <label for="{{ form.cor_destaque.id_for_label }}">Cor de destaque</label>
+      {{ form.cor_destaque }}
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="{{ form.texto_introdutorio.id_for_label }}">Texto da tela inicial (aceita HTML)</label>
+    {{ form.texto_introdutorio }}
+    <small style="color:var(--texto-suave);">Use para citar leis e resoluções locais, ex.: "Conforme Resolução nº XXX/Ano - TCM".</small>
+    {{ form.texto_introdutorio.errors }}
+  </div>
+
+  <div class="campo">
+    <label for="{{ form.avisos.id_for_label }}">Avisos em destaque (aceita HTML)</label>
+    {{ form.avisos }}
+    {{ form.avisos.errors }}
+  </div>
+
+  <div class="campo">
+    <label>
+      {{ form.exigir_recaptcha }} Exigir verificação reCAPTCHA antes da consulta pública
+    </label>
+  </div>
+
+  <div>
+    <button type="submit" class="botao verde">Salvar configurações</button>
+  </div>
+</form>
+{% endblock %}
