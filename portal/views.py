@@ -13,9 +13,19 @@ from emendas.models import ContratoPNCP, Emenda, Empenho
 from integrations.services import gemini
 from tenants.models import Tenant
 
+from .models import ConfiguracaoPlataforma
 from .security import captcha_liberado, requer_captcha, validar_token
 
 ITENS_POR_PAGINA = 15
+
+# Destaques exibidos na faixa da landing enquanto o administrador não
+# cadastra os seus (foco em recursos da plataforma, não em volume).
+DESTAQUES_PADRAO = [
+    {"valor": "3", "rotulo": "Bases federais integradas (CGU · Transferegov · PNCP)"},
+    {"valor": "100%", "rotulo": "Dados oficiais, direto de Brasília"},
+    {"valor": "24/7", "rotulo": "Assistente de IA ao cidadão"},
+    {"valor": "30 dias", "rotulo": "Trava de conformidade PNCP"},
+]
 
 
 def _emendas_do_tenant(municipio_slug):
@@ -33,18 +43,28 @@ def _empenhos_do_tenant(municipio_slug):
 
 def landing(request):
     municipios = Tenant.objects.filter(ativo=True)
-    base = Emenda.objects.filter(tenant__ativo=True)
-    estatisticas = {
-        "municipios": municipios.count(),
-        "emendas": base.count(),
-        "volume": float(base.aggregate(t=Sum("valor_total"))["t"] or 0),
-        "contratos": ContratoPNCP.objects.filter(
-            empenho__emenda__tenant__ativo=True
-        ).count(),
-    }
+    config = ConfiguracaoPlataforma.carregar()
+
+    estatisticas = destaques = None
+    if config.exibir_estatisticas:
+        if config.usar_dados_reais:
+            base = Emenda.objects.filter(tenant__ativo=True)
+            estatisticas = {
+                "municipios": municipios.count(),
+                "emendas": base.count(),
+                "volume": float(base.aggregate(t=Sum("valor_total"))["t"] or 0),
+                "contratos": ContratoPNCP.objects.filter(
+                    empenho__emenda__tenant__ativo=True
+                ).count(),
+            }
+        else:
+            destaques = list(config.destaques.all()) or DESTAQUES_PADRAO
+
     return render(request, "plataforma/landing.html", {
         "municipios": municipios,
+        "exibir_estatisticas": config.exibir_estatisticas,
         "estatisticas": estatisticas,
+        "destaques": destaques,
     })
 
 

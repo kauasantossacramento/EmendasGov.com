@@ -181,26 +181,39 @@
   </div>
 </section>
 
+{% if exibir_estatisticas %}
 <section class="numeros">
   <div class="container">
-    <div class="revelar">
-      <div class="valor" data-contador="{{ estatisticas.municipios }}">0</div>
-      <div class="rotulo">Municípios no portal</div>
-    </div>
-    <div class="revelar">
-      <div class="valor" data-contador="{{ estatisticas.emendas }}">0</div>
-      <div class="rotulo">Emendas monitoradas</div>
-    </div>
-    <div class="revelar">
-      <div class="valor" data-contador="{{ estatisticas.volume }}" data-formato="moeda">R$ 0</div>
-      <div class="rotulo">Em recursos rastreados</div>
-    </div>
-    <div class="revelar">
-      <div class="valor" data-contador="{{ estatisticas.contratos }}">0</div>
-      <div class="rotulo">Contratos vinculados ao PNCP</div>
-    </div>
+    {% if estatisticas %}
+      {# Dados reais da plataforma (contadores animados) #}
+      <div class="revelar">
+        <div class="valor" data-contador="{{ estatisticas.municipios }}">0</div>
+        <div class="rotulo">Municípios no portal</div>
+      </div>
+      <div class="revelar">
+        <div class="valor" data-contador="{{ estatisticas.emendas }}">0</div>
+        <div class="rotulo">Emendas monitoradas</div>
+      </div>
+      <div class="revelar">
+        <div class="valor" data-contador="{{ estatisticas.volume }}" data-formato="moeda">R$ 0</div>
+        <div class="rotulo">Em recursos rastreados</div>
+      </div>
+      <div class="revelar">
+        <div class="valor" data-contador="{{ estatisticas.contratos }}">0</div>
+        <div class="rotulo">Contratos vinculados ao PNCP</div>
+      </div>
+    {% else %}
+      {# Destaques personalizados definidos no /superadmin/ (ou padrão) #}
+      {% for destaque in destaques %}
+      <div class="revelar">
+        <div class="valor">{{ destaque.valor }}</div>
+        <div class="rotulo">{{ destaque.rotulo }}</div>
+      </div>
+      {% endfor %}
+    {% endif %}
   </div>
 </section>
+{% endif %}
 {% endblock %}
 
 {% block conteudo %}
