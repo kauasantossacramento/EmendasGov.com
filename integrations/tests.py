@@ -23,6 +23,32 @@ def resposta_api(numero, autor, valor):
     }
 
 
+class SeloAtualizacaoTests(TestCase):
+    def setUp(self):
+        self.tenant = Tenant.objects.create(
+            slug="alfa", nome="Município Alfa", exigir_recaptcha=False,
+        )
+
+    def test_sem_sincronizacao_mostra_estado_aguardando(self):
+        resposta = self.client.get("/alfa/")
+        self.assertContains(
+            resposta, "Aguardando a primeira sincronização"
+        )
+
+    def test_dashboard_exibe_data_da_ultima_sincronizacao(self):
+        sync = SincronizacaoEmendas.objects.create(
+            tenant=self.tenant, ano=ANO_ATUAL,
+            status=StatusSincronizacao.SUCESSO,
+        )
+        sync.concluido_em = timezone.now()
+        sync.save()
+        resposta = self.client.get("/alfa/")
+        self.assertContains(resposta, "Dados atualizados em")
+        self.assertContains(
+            resposta, timezone.localtime(sync.concluido_em).strftime("%d/%m/%Y")
+        )
+
+
 class SincronizacaoIncrementalTests(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.create(

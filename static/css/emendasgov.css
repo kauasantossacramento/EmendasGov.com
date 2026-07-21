@@ -225,6 +225,27 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .chat-entrada { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--borda); }
 .chat-entrada input { flex: 1; padding: 11px 14px; border: 1px solid var(--borda); border-radius: 999px; font-family: inherit; }
 
+/* ---------- Selo de atualização dos dados (PNTP) ---------- */
+.selo-atualizacao {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: var(--branco); border: 1px solid var(--borda);
+  border-radius: 999px; padding: 7px 16px; margin: 4px 0 0;
+  font-size: .8rem; font-weight: 600; color: var(--texto-suave);
+  box-shadow: var(--sombra); cursor: help;
+}
+.selo-atualizacao strong { color: var(--texto); font-weight: 800; }
+.selo-atualizacao .ponto {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  background: var(--tenant-secundaria);
+  box-shadow: 0 0 0 0 rgba(0, 136, 74, .45);
+  animation: pulsar 2.2s ease-out infinite;
+}
+@keyframes pulsar {
+  0% { box-shadow: 0 0 0 0 rgba(0, 136, 74, .45); }
+  70% { box-shadow: 0 0 0 8px rgba(0, 136, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 136, 74, 0); }
+}
+
 /* ---------- Estados vazios / avisos ---------- */
 .vazio { text-align: center; padding: 46px 20px; color: var(--texto-suave); }
 .vazio .icone { font-size: 2.4rem; margin-bottom: 10px; }
