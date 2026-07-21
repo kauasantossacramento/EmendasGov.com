@@ -27,6 +27,16 @@ PNCP (contrato), mostrando ao cidadão a jornada completa do dinheiro público.
 | `gestor`       | Área administrativa municipal: white-label e rastreabilidade |
 | `integrations` | Clientes Transferegov/CGU/PNCP e assistente Gemini (RAG)     |
 
+## Testar no navegador (GitHub Codespaces)
+
+[![Abrir no GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/kauasantossacramento/EmendasGov.com/tree/claude/emendas-transparency-portal-2li2es)
+
+Sem instalar nada: o link acima cria um ambiente na nuvem do GitHub que
+instala as dependências, aplica as migrações, carrega os dados de
+demonstração e sobe o servidor automaticamente. Quando o Codespace abrir,
+a porta 8000 é exposta com uma URL pública — acesse `/demo/` (portal
+público) e `/admin/demo/` (gestor: `gestor-demo` / `transparencia`).
+
 ## Rodando localmente
 
 ```bash

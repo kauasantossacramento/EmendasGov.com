@@ -16,6 +16,12 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
+# Confiança de CSRF para ambientes de teste hospedados (GitHub Codespaces)
+# e domínios próprios em produção (informe via variável de ambiente).
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "DJANGO_CSRF_TRUSTED_ORIGINS", "https://*.app.github.dev"
+).split(",")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

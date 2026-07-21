@@ -73,6 +73,33 @@ class Tenant(models.Model):
     def __str__(self):
         return f"{self.nome}/{self.uf}" if self.uf else self.nome
 
+    def ultima_atualizacao_dados(self):
+        """
+        Momento da última atualização dos dados exibidos ao cidadão
+        (transparência ativa — critério do PNTP).
+
+        Preferência: conclusão da última sincronização bem-sucedida com
+        as APIs federais; sem sincronização, cai para a importação ou
+        alteração mais recente das emendas no banco local.
+        """
+        sync = (
+            self.sincronizacoes.filter(status="sucesso")
+            .exclude(concluido_em=None)
+            .order_by("-concluido_em")
+            .first()
+        )
+        if sync:
+            return sync.concluido_em
+        return (
+            self.emendas.exclude(importado_em=None)
+            .order_by("-importado_em")
+            .values_list("importado_em", flat=True)
+            .first()
+            or self.emendas.order_by("-atualizado_em")
+            .values_list("atualizado_em", flat=True)
+            .first()
+        )
+
 
 class GestorMunicipal(models.Model):
     """Vincula um usuário do Django a um tenant, dando acesso ao módulo gestor."""

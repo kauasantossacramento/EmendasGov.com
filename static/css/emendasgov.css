@@ -226,6 +226,16 @@ table.tabela { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .chat-entrada input { flex: 1; padding: 11px 14px; border: 1px solid var(--borda); border-radius: 999px; font-family: inherit; }
 
 /* ---------- Selo de atualização dos dados (PNTP) ---------- */
+.faixa-atualizacao {
+  background: var(--fundo);
+  border-bottom: 1px solid var(--borda);
+}
+.faixa-atualizacao .container {
+  display: flex; justify-content: flex-end; padding-top: 8px; padding-bottom: 8px;
+}
+.selo-atualizacao.compacto {
+  margin: 0; padding: 5px 14px; font-size: .76rem; box-shadow: none;
+}
 .selo-atualizacao {
   display: inline-flex; align-items: center; gap: 9px;
   background: var(--branco); border: 1px solid var(--borda);

@@ -65,35 +65,6 @@ def gateway(request, municipio_slug):
 # Dashboard inicial do município (KPIs + gráficos)
 # ---------------------------------------------------------------------------
 
-def _ultima_atualizacao(request, emendas):
-    """
-    Momento da última atualização dos dados exibidos ao cidadão
-    (transparência ativa — critério do PNTP).
-
-    Preferência: conclusão da última sincronização bem-sucedida com as
-    APIs federais; sem sincronização, cai para a importação/alteração
-    mais recente das emendas do próprio banco.
-    """
-    if request.tenant:
-        sync = (
-            request.tenant.sincronizacoes.filter(status="sucesso")
-            .exclude(concluido_em=None)
-            .order_by("-concluido_em")
-            .first()
-        )
-        if sync:
-            return sync.concluido_em
-    return (
-        emendas.exclude(importado_em=None)
-        .order_by("-importado_em")
-        .values_list("importado_em", flat=True)
-        .first()
-        or emendas.order_by("-atualizado_em")
-        .values_list("atualizado_em", flat=True)
-        .first()
-    )
-
-
 def dashboard(request, municipio_slug):
     emendas = _emendas_do_tenant(municipio_slug)
     anos = list(
@@ -179,7 +150,6 @@ def dashboard(request, municipio_slug):
     return render(request, "portal/dashboard.html", {
         "ano": ano,
         "anos": anos,
-        "ultima_atualizacao": _ultima_atualizacao(request, emendas),
         "kpi_total_emendas": total_emendas,
         "kpi_volume_total": volume_total,
         "kpi_taxa_execucao": taxa_execucao,

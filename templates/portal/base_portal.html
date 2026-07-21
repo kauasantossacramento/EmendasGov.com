@@ -30,6 +30,21 @@
   </div>
 </header>
 <div class="faixa-marca"></div>
+{% if tenant %}
+<div class="faixa-atualizacao">
+  <div class="container">
+    <p class="selo-atualizacao compacto"
+       title="Transparência ativa: os dados deste portal são sincronizados com as bases federais (Transferegov / Portal da Transparência) e servidos localmente para consulta imediata.">
+      <span class="ponto" aria-hidden="true"></span>
+      {% if ultima_atualizacao %}
+        Dados atualizados em <strong>&nbsp;{{ ultima_atualizacao|date:"d/m/Y" }} às {{ ultima_atualizacao|date:"H\hi" }}</strong>&nbsp;· direto de Brasília
+      {% else %}
+        Aguardando a primeira sincronização com as bases federais
+      {% endif %}
+    </p>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block conteudo %}

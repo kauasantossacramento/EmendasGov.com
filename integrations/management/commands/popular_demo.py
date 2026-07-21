@@ -3,10 +3,11 @@ import random
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from emendas.models import ContratoPNCP, Emenda, Empenho
-from tenants.models import Tenant
+from tenants.models import GestorMunicipal, Tenant
 
 PARLAMENTARES = [
     "Dep. João Silva", "Dep. Maria Souza", "Sen. Carlos Pereira",
@@ -103,6 +104,16 @@ class Command(BaseCommand):
                         empenho.processo_administrativo = f"PA-{contador:04d}/{ano}"
                         empenho.save(update_fields=["processo_administrativo"])
 
+        # Conta de gestor para testar o painel administrativo do município.
+        # Apenas para demonstração — troque a senha (ou remova) em produção.
+        usuario, criado = User.objects.get_or_create(username="gestor-demo")
+        if criado:
+            usuario.set_password("transparencia")
+            usuario.save()
+        GestorMunicipal.objects.get_or_create(usuario=usuario, tenant=tenant)
+
         self.stdout.write(self.style.SUCCESS(
-            f"Dados de demonstração prontos: acesse /{tenant.slug}/"
+            f"Dados de demonstração prontos: acesse /{tenant.slug}/\n"
+            f"Painel do gestor: /admin/{tenant.slug}/ "
+            f"(usuário: gestor-demo · senha: transparencia)"
         ))
