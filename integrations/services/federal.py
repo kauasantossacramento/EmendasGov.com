@@ -96,6 +96,62 @@ def _area_por_funcao(funcao: str) -> str:
     return mapa.get(funcao, "outros")
 
 
+def anos_pendentes(tenant, ano_fim=None):
+    """
+    Exercícios que ainda precisam ser sincronizados para o tenant.
+
+    Regra incremental: exercícios históricos já sincronizados com SUCESSO
+    são pulados (os dados já estão gravados no banco local); o exercício
+    corrente é sempre re-sincronizado, pois novas emendas e atualizações
+    continuam chegando ao longo do ano. O `update_or_create` garante que
+    nada é duplicado nas repetições.
+    """
+    from integrations.models import SincronizacaoEmendas, StatusSincronizacao
+
+    ano_fim = ano_fim or timezone.localdate().year
+    ja_sincronizados = set(
+        SincronizacaoEmendas.objects.filter(
+            tenant=tenant,
+            status=StatusSincronizacao.SUCESSO,
+            ano__lt=ano_fim,
+        ).values_list("ano", flat=True)
+    )
+    return [
+        ano
+        for ano in range(tenant.ano_inicio_sincronizacao, ano_fim + 1)
+        if ano == ano_fim or ano not in ja_sincronizados
+    ]
+
+
+def sincronizar_tenant(tenant, ano_fim=None):
+    """
+    Sincroniza o tenant de forma incremental, registrando cada execução.
+
+    Primeira execução: carga histórica completa (ano_inicio_sincronizacao
+    até hoje). Execuções seguintes: apenas exercícios pendentes + o ano
+    corrente. Retorna a lista de registros SincronizacaoEmendas gerados.
+    """
+    from integrations.models import SincronizacaoEmendas, StatusSincronizacao
+
+    execucoes = []
+    for ano in anos_pendentes(tenant, ano_fim):
+        log = SincronizacaoEmendas.objects.create(tenant=tenant, ano=ano)
+        try:
+            criadas, atualizadas = sincronizar_emendas(tenant, ano)
+        except Exception as exc:  # noqa: BLE001 — registra e segue o backfill
+            log.status = StatusSincronizacao.ERRO
+            log.mensagem_erro = str(exc)[:2000]
+            logger.exception("Sync %s/%s falhou", tenant.slug, ano)
+        else:
+            log.status = StatusSincronizacao.SUCESSO
+            log.emendas_criadas = criadas
+            log.emendas_atualizadas = atualizadas
+        log.concluido_em = timezone.now()
+        log.save()
+        execucoes.append(log)
+    return execucoes
+
+
 def sincronizar_emendas(tenant, ano):
     """
     Importa/atualiza as emendas do município a partir do Portal da

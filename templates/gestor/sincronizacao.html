@@ -1,0 +1,78 @@
+{% extends "gestor/base_gestor.html" %}
+{% load humanize %}
+
+{% block gestor_conteudo %}
+<h2 class="titulo-secao">Sincronização com as APIs federais</h2>
+<p class="subtitulo-secao">
+  Os dados importados ficam <strong>gravados no banco local</strong> — o portal público
+  responde sempre a partir deles, mesmo se as APIs federais estiverem fora do ar.
+  A sincronização é incremental: exercícios históricos já carregados não são
+  consultados novamente, e nenhuma emenda é duplicada.
+</p>
+
+<div class="grade-kpi">
+  <div class="cartao kpi">
+    <div class="rotulo">Emendas gravadas no banco</div>
+    <div class="valor">{{ total_emendas }}</div>
+  </div>
+  <div class="cartao kpi kpi-amarelo">
+    <div class="rotulo">Exercícios a sincronizar</div>
+    <div class="valor">
+      {% if pendentes %}{{ pendentes|join:", " }}{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="cartao kpi kpi-verde">
+    <div class="rotulo">Carga histórica desde</div>
+    <div class="valor">{{ tenant.ano_inicio_sincronizacao }}</div>
+  </div>
+</div>
+
+<form method="post" data-spinner style="margin-bottom: 26px;">
+  {% csrf_token %}
+  <button type="submit" class="botao verde">⟳ Sincronizar agora</button>
+  <small style="color:var(--texto-suave); margin-left: 12px;">
+    Também é executada automaticamente todos os dias.
+  </small>
+</form>
+
+<h3 style="margin-bottom: 10px;">Histórico de sincronizações</h3>
+{% if historico %}
+<div class="cartao" style="padding:0; overflow:hidden;">
+  <div class="tabela-rolagem">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Exercício</th><th>Status</th><th class="numero">Criadas</th>
+          <th class="numero">Atualizadas</th><th>Início</th><th>Conclusão</th><th>Detalhe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sync in historico %}
+        <tr>
+          <td><strong>{{ sync.ano }}</strong></td>
+          <td>
+            {% if sync.status == "sucesso" %}<span class="selo conforme">Sucesso</span>
+            {% elif sync.status == "erro" %}<span class="selo cancelado">Erro</span>
+            {% else %}<span class="selo pendente">Executando</span>{% endif %}
+          </td>
+          <td class="numero">{{ sync.emendas_criadas }}</td>
+          <td class="numero">{{ sync.emendas_atualizadas }}</td>
+          <td>{{ sync.iniciado_em|date:"d/m/Y H:i" }}</td>
+          <td>{{ sync.concluido_em|date:"d/m/Y H:i"|default:"—" }}</td>
+          <td style="max-width:260px; color:var(--vermelho); font-size:.8rem;">
+            {{ sync.mensagem_erro|truncatechars:120 }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="cartao vazio">
+  <div class="icone">⟳</div>
+  <p><strong>Nenhuma sincronização executada ainda.</strong><br>
+  Clique em "Sincronizar agora" para fazer a carga histórica desde {{ tenant.ano_inicio_sincronizacao }}.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -46,6 +46,17 @@ class Tenant(models.Model):
         help_text="Avisos exibidos em destaque no portal público.",
     )
 
+    # Sincronização ---------------------------------------------------------
+    ano_inicio_sincronizacao = models.PositiveIntegerField(
+        "Ano inicial da sincronização",
+        default=2020,
+        help_text=(
+            "Primeiro exercício a importar das APIs federais. Na primeira "
+            "sincronização o sistema faz a carga histórica deste ano até a "
+            "data atual; depois, apenas o que ainda falta é consultado."
+        ),
+    )
+
     # Controle --------------------------------------------------------------
     ativo = models.BooleanField("Portal ativo", default=True)
     exigir_recaptcha = models.BooleanField(

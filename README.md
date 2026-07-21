@@ -42,9 +42,26 @@ Acesse `http://localhost:8000/demo/` (portal público) e
 
 ## Sincronização com as APIs federais
 
+Os dados importados são **gravados no banco local** — o portal público lê
+sempre do banco e continua no ar mesmo com as APIs federais indisponíveis.
+
 ```bash
-python manage.py sincronizar_emendas --tenant demo --ano 2026
+python manage.py sincronizar_emendas --tenant demo
 ```
+
+A sincronização é **incremental e sem duplicação**:
+
+- **Primeira execução do cliente**: carga histórica completa, do
+  `ano_inicio_sincronizacao` do tenant até a data atual.
+- **Execuções seguintes**: apenas exercícios ainda pendentes (ou com erro)
+  são consultados; o ano corrente é sempre re-sincronizado, pois novas
+  emendas continuam chegando durante o exercício.
+- A deduplicação usa a chave natural `(tenant, numero, ano)` via
+  `update_or_create` — registros existentes são atualizados, nunca duplicados.
+
+Cada execução fica registrada em `SincronizacaoEmendas` (exercício, status,
+contagens, erro), visível no painel do gestor em `/admin/<slug>/sincronizacao/`
+— onde o gestor também pode disparar a sincronização manualmente.
 
 Agende diariamente (cron) para manter os dados atualizados. Requer o código
 IBGE configurado no tenant e a chave da API do Portal da Transparência.

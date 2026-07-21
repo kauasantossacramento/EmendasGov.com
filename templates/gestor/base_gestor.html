@@ -14,6 +14,7 @@
     <nav>
       <a href="{% url 'gestor:painel' tenant.slug %}">Visão geral</a>
       <a href="{% url 'gestor:emendas' tenant.slug %}">Emendas e empenhos</a>
+      <a href="{% url 'gestor:sincronizacao' tenant.slug %}">Sincronização</a>
       <a href="{% url 'gestor:configuracoes' tenant.slug %}">Configurações</a>
       <a href="/{{ tenant.slug }}/" target="_blank">Ver portal ↗</a>
       <a href="{% url 'gestor:logout' tenant.slug %}">Sair</a>

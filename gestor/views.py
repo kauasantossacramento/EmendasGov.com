@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from emendas.models import Emenda, Empenho, StatusRastreabilidade
+from integrations.services.federal import anos_pendentes, sincronizar_tenant
 from tenants.models import Tenant
 
 from .forms import ConfiguracaoTenantForm, VinculoContratualForm
@@ -99,6 +100,46 @@ def emendas_lista(request, municipio_slug):
         .order_by("-ano", "numero")
     )
     return render(request, "gestor/emendas.html", {"emendas": emendas})
+
+
+@requer_gestor
+def sincronizacao(request, municipio_slug):
+    """
+    Histórico e disparo da sincronização com as APIs federais.
+
+    Os dados importados ficam gravados no banco local — o portal público
+    nunca depende da API em tempo real. Aqui o gestor acompanha o que já
+    foi carregado e dispara a atualização incremental quando quiser.
+    """
+    if request.method == "POST":
+        try:
+            execucoes = sincronizar_tenant(request.tenant)
+        except ValueError as exc:  # ex.: código IBGE não configurado
+            messages.error(request, str(exc))
+        else:
+            if not execucoes:
+                messages.success(request, "Nada pendente — os dados locais já estão completos.")
+            else:
+                sucesso = sum(1 for e in execucoes if e.status == "sucesso")
+                criadas = sum(e.emendas_criadas for e in execucoes)
+                atualizadas = sum(e.emendas_atualizadas for e in execucoes)
+                messages.success(
+                    request,
+                    f"Sincronização concluída: {sucesso} exercício(s) processado(s), "
+                    f"{criadas} emendas novas, {atualizadas} atualizadas.",
+                )
+                erros = [e for e in execucoes if e.status == "erro"]
+                for e in erros:
+                    messages.error(
+                        request, f"Exercício {e.ano}: {e.mensagem_erro or 'falha na API'}"
+                    )
+        return redirect("gestor:sincronizacao", municipio_slug=municipio_slug)
+
+    return render(request, "gestor/sincronizacao.html", {
+        "historico": request.tenant.sincronizacoes.select_related("tenant")[:50],
+        "pendentes": anos_pendentes(request.tenant),
+        "total_emendas": Emenda.objects.do_tenant(municipio_slug).count(),
+    })
 
 
 @requer_gestor

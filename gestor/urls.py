@@ -15,6 +15,11 @@ urlpatterns = [
     ),
     path("<slug:municipio_slug>/emendas/", views.emendas_lista, name="emendas"),
     path(
+        "<slug:municipio_slug>/sincronizacao/",
+        views.sincronizacao,
+        name="sincronizacao",
+    ),
+    path(
         "<slug:municipio_slug>/empenhos/<int:empenho_id>/vincular/",
         views.vincular_empenho,
         name="vincular",
