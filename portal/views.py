@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from emendas.models import Emenda, Empenho
+from emendas.models import ContratoPNCP, Emenda, Empenho
 from integrations.services import gemini
 from tenants.models import Tenant
 
@@ -33,7 +33,19 @@ def _empenhos_do_tenant(municipio_slug):
 
 def landing(request):
     municipios = Tenant.objects.filter(ativo=True)
-    return render(request, "plataforma/landing.html", {"municipios": municipios})
+    base = Emenda.objects.filter(tenant__ativo=True)
+    estatisticas = {
+        "municipios": municipios.count(),
+        "emendas": base.count(),
+        "volume": float(base.aggregate(t=Sum("valor_total"))["t"] or 0),
+        "contratos": ContratoPNCP.objects.filter(
+            empenho__emenda__tenant__ativo=True
+        ).count(),
+    }
+    return render(request, "plataforma/landing.html", {
+        "municipios": municipios,
+        "estatisticas": estatisticas,
+    })
 
 
 # ---------------------------------------------------------------------------

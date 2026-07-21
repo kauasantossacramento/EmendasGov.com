@@ -1,4 +1,140 @@
 {% extends "base.html" %}
+{% load formatos %}
+
+{% block cabecalho_extra %}
+<style>
+  /* ===== Estilos específicos da landing (dois públicos) ===== */
+  html { scroll-behavior: smooth; }
+
+  /* Revelação ao rolar */
+  .revelar { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+  .revelar.visivel { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .revelar { opacity: 1; transform: none; transition: none; }
+    .hero-flutuante span { animation: none !important; }
+  }
+
+  /* Hero */
+  .hero-duplo {
+    position: relative; overflow: hidden;
+    background: linear-gradient(135deg, var(--azul-escuro), var(--azul) 65%, #1E63D0);
+    color: var(--branco); padding: 64px 0 56px;
+  }
+  .hero-flutuante { position: absolute; inset: 0; pointer-events: none; }
+  .hero-flutuante span {
+    position: absolute; display: block; border-radius: 50%;
+    background: rgba(255, 205, 7, .12); border: 1px solid rgba(255, 255, 255, .12);
+    animation: flutuar 9s ease-in-out infinite;
+  }
+  .hero-flutuante span:nth-child(1) { width: 190px; height: 190px; top: -60px; right: 6%; }
+  .hero-flutuante span:nth-child(2) { width: 90px; height: 90px; bottom: 8%; right: 24%; animation-delay: -3s; }
+  .hero-flutuante span:nth-child(3) { width: 130px; height: 130px; bottom: -40px; left: 4%; animation-delay: -6s; background: rgba(0, 136, 74, .18); }
+  @keyframes flutuar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+
+  .hero-duplo h1 { font-size: 2.3rem; font-weight: 800; margin: 0 0 14px; max-width: 720px; }
+  .hero-duplo h1 .dourado { color: var(--amarelo); }
+  .hero-duplo .lead { max-width: 640px; font-size: 1.02rem; opacity: .92; margin: 0 0 30px; }
+
+  /* Cartões de persona */
+  .personas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 780px; }
+  .persona {
+    background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: var(--raio); padding: 22px; backdrop-filter: blur(4px);
+    transition: transform .2s ease, background .2s ease; display: block; color: var(--branco);
+  }
+  .persona:hover { transform: translateY(-4px); background: rgba(255, 255, 255, .14); text-decoration: none; }
+  .persona .icone { font-size: 1.7rem; }
+  .persona h3 { margin: 8px 0 6px; font-size: 1.05rem; }
+  .persona p { margin: 0 0 12px; font-size: .86rem; opacity: .88; }
+  .persona .seta { font-weight: 800; color: var(--amarelo); }
+
+  /* Números da plataforma */
+  .numeros { background: var(--branco); border-bottom: 1px solid var(--borda); }
+  .numeros .container {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px; padding-top: 26px; padding-bottom: 26px; text-align: center;
+  }
+  .numeros .valor { font-size: 1.65rem; font-weight: 800; color: var(--azul); font-variant-numeric: tabular-nums; }
+  .numeros .rotulo { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--texto-suave); font-weight: 700; }
+
+  /* Busca de municípios */
+  .busca-municipio {
+    display: flex; align-items: center; gap: 10px; max-width: 460px;
+    background: var(--branco); border: 2px solid var(--borda); border-radius: 999px;
+    padding: 6px 8px 6px 18px; margin: 18px 0 6px; transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .busca-municipio:focus-within { border-color: var(--azul); box-shadow: 0 0 0 4px rgba(19, 81, 180, .12); }
+  .busca-municipio input { flex: 1; border: none; outline: none; font: inherit; font-size: 16px; background: transparent; min-width: 0; }
+  .busca-municipio .lupa { font-size: 1.1rem; }
+
+  /* Linha do "como funciona" */
+  .etapas { position: relative; counter-reset: etapa; }
+  .etapa { position: relative; padding-left: 58px; margin-bottom: 26px; }
+  .etapa::before {
+    counter-increment: etapa; content: counter(etapa);
+    position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--azul); color: var(--branco); font-weight: 800;
+  }
+  .etapa:nth-child(2)::before { background: var(--amarelo); color: var(--azul-escuro); }
+  .etapa:nth-child(3)::before { background: var(--verde); }
+  .etapa:not(:last-child)::after {
+    content: ""; position: absolute; left: 19px; top: 46px; bottom: -22px; width: 2px;
+    background: linear-gradient(var(--borda), transparent);
+  }
+  .etapa h3 { margin: 6px 0 4px; }
+  .etapa p { margin: 0; color: var(--texto-suave); font-size: .92rem; }
+
+  /* Seção do gestor */
+  .faixa-gestor {
+    background: linear-gradient(180deg, #0C326F, #123C86); color: var(--branco);
+    padding: 56px 0; margin-top: 44px;
+  }
+  .faixa-gestor h2 { font-size: 1.7rem; margin: 0 0 8px; }
+  .faixa-gestor .sub { opacity: .88; max-width: 660px; margin: 0 0 30px; }
+  .beneficios { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .beneficio {
+    background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: var(--raio); padding: 20px; transition: transform .2s ease, background .2s ease;
+  }
+  .beneficio:hover { transform: translateY(-4px); background: rgba(255, 255, 255, .11); }
+  .beneficio .icone { font-size: 1.5rem; }
+  .beneficio h3 { margin: 10px 0 6px; font-size: .98rem; }
+  .beneficio p { margin: 0; font-size: .84rem; opacity: .85; }
+
+  .argumentos { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 38px; align-items: center; }
+  .argumentos ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  .argumentos li { display: flex; gap: 10px; font-size: .94rem; }
+  .argumentos li::before { content: "✔"; color: var(--amarelo); font-weight: 800; }
+  .cartao-cta {
+    background: var(--branco); color: var(--texto); border-radius: var(--raio);
+    padding: 28px; text-align: center; box-shadow: 0 18px 44px rgba(0, 0, 0, .28);
+  }
+  .cartao-cta .destaque { font-size: 1.1rem; font-weight: 800; color: var(--azul-escuro); margin-bottom: 6px; }
+  .cartao-cta p { color: var(--texto-suave); font-size: .88rem; }
+
+  /* FAQ */
+  .faq details {
+    background: var(--branco); border: 1px solid var(--borda); border-radius: 12px;
+    padding: 0 20px; margin-bottom: 10px;
+  }
+  .faq summary {
+    list-style: none; cursor: pointer; padding: 16px 0; font-weight: 700;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; font-size: 1.3rem; color: var(--azul); transition: transform .2s ease; }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq details p { margin: 0 0 16px; color: var(--texto-suave); font-size: .92rem; }
+
+  @media (max-width: 720px) {
+    .hero-duplo h1 { font-size: 1.55rem; }
+    .personas, .argumentos { grid-template-columns: 1fr; }
+    .faixa-gestor { padding: 40px 0; }
+  }
+</style>
+{% endblock %}
 
 {% block cabecalho %}
 <header class="topo">
@@ -10,30 +146,81 @@
     <nav>
       <a href="#municipios">Municípios</a>
       <a href="#como-funciona">Como funciona</a>
+      <a href="#para-gestores">Para gestores</a>
     </nav>
   </div>
 </header>
 <div class="faixa-marca"></div>
-<section class="hero">
+
+<section class="hero-duplo">
+  <div class="hero-flutuante" aria-hidden="true"><span></span><span></span><span></span></div>
   <div class="container">
     <h1>Do Congresso ao seu bairro:<br>
       siga <span class="dourado">cada centavo</span> das emendas parlamentares.</h1>
-    <p>
+    <p class="lead">
       O EmendasGov.com conecta o Transferegov, o Portal da Transparência e o PNCP
-      para mostrar ao cidadão a jornada completa do recurso federal — da emenda ao contrato.
+      para mostrar a jornada completa do recurso federal — da emenda ao contrato —
+      em um portal único, atualizado direto de Brasília.
     </p>
-    <a class="botao" style="background:var(--amarelo); color:var(--azul-escuro);" href="#municipios">Encontrar meu município</a>
+    <div class="personas">
+      <a class="persona" href="#municipios">
+        <div class="icone">🔎</div>
+        <h3>Sou cidadão</h3>
+        <p>Quero fiscalizar: consultar quanto meu município recebeu, de qual
+        parlamentar e como cada real foi gasto.</p>
+        <span class="seta">Consultar meu município →</span>
+      </a>
+      <a class="persona" href="#para-gestores">
+        <div class="icone">🏛</div>
+        <h3>Sou gestor público</h3>
+        <p>Quero um portal de transparência de emendas em conformidade com o
+        PNCP e o PNTP, sem esforço da minha equipe.</p>
+        <span class="seta">Conhecer a plataforma →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="numeros">
+  <div class="container">
+    <div class="revelar">
+      <div class="valor" data-contador="{{ estatisticas.municipios }}">0</div>
+      <div class="rotulo">Municípios no portal</div>
+    </div>
+    <div class="revelar">
+      <div class="valor" data-contador="{{ estatisticas.emendas }}">0</div>
+      <div class="rotulo">Emendas monitoradas</div>
+    </div>
+    <div class="revelar">
+      <div class="valor" data-contador="{{ estatisticas.volume }}" data-formato="moeda">R$ 0</div>
+      <div class="rotulo">Em recursos rastreados</div>
+    </div>
+    <div class="revelar">
+      <div class="valor" data-contador="{{ estatisticas.contratos }}">0</div>
+      <div class="rotulo">Contratos vinculados ao PNCP</div>
+    </div>
   </div>
 </section>
 {% endblock %}
 
 {% block conteudo %}
 <div class="container">
-  <h2 id="municipios" class="titulo-secao">Portais municipais</h2>
-  <p class="subtitulo-secao">Escolha o seu município para acessar o painel de transparência.</p>
-  <div class="grade-municipios">
+
+  {# ================= CIDADÃO: busca de municípios ================= #}
+  <h2 id="municipios" class="titulo-secao revelar">Consulte o seu município</h2>
+  <p class="subtitulo-secao revelar">
+    Acesso livre e gratuito, sem cadastro. Digite o nome da sua cidade e
+    acompanhe cada emenda: valores, parlamentares, empenhos e contratos.
+  </p>
+  <div class="busca-municipio revelar">
+    <span class="lupa" aria-hidden="true">🔎</span>
+    <input type="search" id="filtro-municipio" placeholder="Buscar município… (ex.: Salvador)"
+           aria-label="Buscar município">
+  </div>
+  <div class="grade-municipios" id="lista-municipios">
     {% for municipio in municipios %}
-      <a class="cartao cartao-municipio" href="/{{ municipio.slug }}/" data-spinner>
+      <a class="cartao cartao-municipio revelar" href="/{{ municipio.slug }}/" data-spinner
+         data-nome="{{ municipio.nome|lower }} {{ municipio.uf|lower }}">
         {% if municipio.brasao %}
           <img src="{{ municipio.brasao.url }}" alt="Brasão de {{ municipio.nome }}" style="height:64px; margin-bottom:10px;">
         {% else %}
@@ -49,24 +236,207 @@
       </div>
     {% endfor %}
   </div>
+  <p id="busca-vazia" class="vazio" hidden>
+    Não encontramos esse município por aqui — ainda.
+    Que tal sugerir o EmendasGov.com à sua prefeitura?
+  </p>
 
-  <h2 id="como-funciona" class="titulo-secao">Como funciona</h2>
-  <div class="grade-kpi">
-    <div class="cartao kpi">
-      <div class="rotulo">1 · Origem do recurso</div>
-      <div class="valor" style="font-size:1.05rem;">Transferegov / CGU</div>
-      <p style="color:var(--texto-suave); font-size:.88rem;">As emendas destinadas ao município são importadas automaticamente das bases federais.</p>
+  {# ================= COMO FUNCIONA ================= #}
+  <h2 id="como-funciona" class="titulo-secao revelar" style="margin-top:44px;">A jornada do recurso, sem pontas soltas</h2>
+  <p class="subtitulo-secao revelar">Três sistemas federais, um único fio condutor — é isso que o cidadão vê e que o Tribunal de Contas cobra.</p>
+  <div class="etapas">
+    <div class="etapa revelar">
+      <h3>Origem do recurso — Transferegov / CGU</h3>
+      <p>As emendas destinadas ao município são importadas automaticamente das
+      bases federais, com sincronização diária e carga histórica desde o ano que você escolher.</p>
     </div>
-    <div class="cartao kpi kpi-amarelo">
-      <div class="rotulo">2 · Reserva do recurso</div>
-      <div class="valor" style="font-size:1.05rem;">Empenho municipal</div>
-      <p style="color:var(--texto-suave); font-size:.88rem;">Cada empenho mostra fornecedor, valores empenhados, liquidados e pagos.</p>
+    <div class="etapa revelar">
+      <h3>Reserva do recurso — Empenho municipal</h3>
+      <p>Cada empenho aparece com fornecedor, valores empenhados, liquidados e
+      pagos — e um alerta automático quando falta o vínculo contratual após 30 dias.</p>
     </div>
-    <div class="cartao kpi kpi-verde">
-      <div class="rotulo">3 · Execução do recurso</div>
-      <div class="valor" style="font-size:1.05rem;">Contrato no PNCP</div>
-      <p style="color:var(--texto-suave); font-size:.88rem;">O vínculo com o Portal Nacional de Contratações Públicas fecha o ciclo da rastreabilidade.</p>
+    <div class="etapa revelar">
+      <h3>Execução do recurso — Contrato no PNCP</h3>
+      <p>O vínculo com o Portal Nacional de Contratações Públicas fecha o ciclo:
+      o cidadão clica e vê o contrato oficial, o edital e o fornecedor.</p>
     </div>
   </div>
 </div>
+
+{# ================= GESTOR: proposta de valor ================= #}
+<section class="faixa-gestor" id="para-gestores">
+  <div class="container">
+    <h2 class="revelar">Gestor, a transparência que o Tribunal cobra —<br>pronta em dias, não em licitações de meses.</h2>
+    <p class="sub revelar">
+      O EmendasGov.com é um software independente, ofertado a prefeituras e câmaras,
+      que transforma a obrigação legal de transparência em vitrine do seu trabalho
+      de captação de recursos.
+    </p>
+
+    <div class="beneficios">
+      <div class="beneficio revelar">
+        <div class="icone">🛡</div>
+        <h3>Conformidade PNCP e PNTP</h3>
+        <p>Selos de rastreabilidade, vínculo contratual guiado e trava de 30 dias
+        para empenhos sem número de controle do PNCP.</p>
+      </div>
+      <div class="beneficio revelar">
+        <div class="icone">⟳</div>
+        <h3>Dados direto de Brasília</h3>
+        <p>Sincronização automática com Transferegov e Portal da Transparência.
+        Sem digitação, sem planilha, sem retrabalho da sua equipe.</p>
+      </div>
+      <div class="beneficio revelar">
+        <div class="icone">🎨</div>
+        <h3>Com a cara do seu município</h3>
+        <p>Brasão, cores e textos institucionais próprios (white-label), no
+        endereço /seu-municipio — pronto para linkar no site da prefeitura.</p>
+      </div>
+      <div class="beneficio revelar">
+        <div class="icone">💬</div>
+        <h3>Assistente de IA para o cidadão</h3>
+        <p>Um chat que responde 24/7 sobre as emendas do seu município, em
+        linguagem simples — e reduz demandas de ouvidoria e LAI.</p>
+      </div>
+      <div class="beneficio revelar">
+        <div class="icone">📊</div>
+        <h3>Dashboards que prestam contas</h3>
+        <p>KPIs, ranking de parlamentares, evolução mensal e o diagrama de
+        rastreabilidade do recurso — do parlamentar ao fornecedor.</p>
+      </div>
+      <div class="beneficio revelar">
+        <div class="icone">⚡</div>
+        <h3>Implantação em dias</h3>
+        <p>Informe o código IBGE, personalize as cores e publique. A carga
+        histórica das emendas é automática.</p>
+      </div>
+    </div>
+
+    <div class="argumentos">
+      <ul class="revelar">
+        <li>Evite apontamentos dos Tribunais de Contas por falta de transparência das emendas.</li>
+        <li>Melhore a nota do município no Programa Nacional de Transparência Pública (PNTP).</li>
+        <li>Mostre à população, com dados oficiais, o resultado do seu trabalho de captação.</li>
+        <li>Reduza pedidos de informação repetitivos: o dado já está público e explicado.</li>
+        <li>Acesso do gestor com histórico de sincronizações e pendências em um clique.</li>
+      </ul>
+      <div class="cartao-cta revelar">
+        <div class="destaque">Veja funcionando com os dados do seu município</div>
+        <p>Agende uma demonstração sem compromisso — em 30 minutos você navega
+        no portal do seu município com dados reais de Brasília.</p>
+        <a class="botao" style="background:var(--amarelo); color:var(--azul-escuro);"
+           href="mailto:contato@emendasgov.com?subject=Demonstra%C3%A7%C3%A3o%20EmendasGov.com&body=Ol%C3%A1!%20Sou%20gestor(a)%20do%20munic%C3%ADpio%20de%20...%20e%20quero%20conhecer%20o%20EmendasGov.com.">
+          Solicitar demonstração
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ================= FAQ ================= #}
+<div class="container faq" style="margin-top: 40px;">
+  <h2 class="titulo-secao revelar">Perguntas frequentes</h2>
+  <details class="revelar">
+    <summary>Os dados exibidos são oficiais?</summary>
+    <p>Sim. As emendas vêm das bases públicas do Governo Federal (Transferegov e
+    Portal da Transparência/CGU) e os contratos são vinculados ao PNCP. O selo no
+    topo de cada portal mostra quando os dados foram atualizados pela última vez.</p>
+  </details>
+  <details class="revelar">
+    <summary>Quanto custa para o cidadão consultar?</summary>
+    <p>Nada. O acesso do cidadão é livre, gratuito e sem cadastro — transparência
+    pública não pode ter catraca.</p>
+  </details>
+  <details class="revelar">
+    <summary>O EmendasGov.com é um site do governo?</summary>
+    <p>Não. É um software independente ofertado a municípios e gestores públicos
+    para centralizar as informações de emendas em seus portais, usando dados
+    oficiais das bases federais.</p>
+  </details>
+  <details class="revelar">
+    <summary>Como meu município adere?</summary>
+    <p>O gestor solicita uma demonstração, definimos o endereço do portal
+    (ex.: /seu-municipio), aplicamos o brasão e as cores oficiais e ativamos a
+    sincronização com o código IBGE. Em poucos dias o portal está no ar com a
+    carga histórica completa.</p>
+  </details>
+  <details class="revelar">
+    <summary>E a segurança dos dados?</summary>
+    <p>Todos os dados exibidos são públicos por natureza (emendas, empenhos e
+    contratos). O acesso à consulta é protegido contra robôs (reCAPTCHA) e cada
+    município é totalmente isolado dos demais.</p>
+  </details>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Revelação ao rolar ----------
+  var observador = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (entrada) {
+      if (entrada.isIntersecting) {
+        entrada.target.classList.add("visivel");
+        observador.unobserve(entrada.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".revelar").forEach(function (el) { observador.observe(el); });
+
+  // ---------- Contadores animados ----------
+  var reduzir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var compacto = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1,
+  });
+  function formatar(el, valor) {
+    if (el.dataset.formato === "moeda") return compacto.format(valor);
+    return Math.round(valor).toLocaleString("pt-BR");
+  }
+  function animarContador(el) {
+    var alvo = parseFloat(el.dataset.contador) || 0;
+    if (reduzir || alvo === 0) { el.textContent = formatar(el, alvo); return; }
+    var inicio = null, duracao = 1400;
+    function passo(agora) {
+      if (!inicio) inicio = agora;
+      var progresso = Math.min((agora - inicio) / duracao, 1);
+      var suave = 1 - Math.pow(1 - progresso, 3); /* ease-out */
+      el.textContent = formatar(el, alvo * suave);
+      if (progresso < 1) requestAnimationFrame(passo);
+    }
+    requestAnimationFrame(passo);
+  }
+  var observadorNumeros = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (entrada) {
+      if (entrada.isIntersecting) {
+        animarContador(entrada.target);
+        observadorNumeros.unobserve(entrada.target);
+      }
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll("[data-contador]").forEach(function (el) {
+    observadorNumeros.observe(el);
+  });
+
+  // ---------- Busca instantânea de municípios ----------
+  var filtro = document.getElementById("filtro-municipio");
+  var cartoes = Array.prototype.slice.call(
+    document.querySelectorAll("#lista-municipios [data-nome]")
+  );
+  var vazio = document.getElementById("busca-vazia");
+  if (filtro && cartoes.length) {
+    filtro.addEventListener("input", function () {
+      var termo = filtro.value.trim().toLowerCase();
+      var visiveis = 0;
+      cartoes.forEach(function (cartao) {
+        var corresponde = !termo || cartao.dataset.nome.indexOf(termo) !== -1;
+        cartao.style.display = corresponde ? "" : "none";
+        if (corresponde) visiveis++;
+      });
+      if (vazio) vazio.hidden = visiveis > 0;
+    });
+  }
+})();
+</script>
 {% endblock %}
