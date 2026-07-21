@@ -22,7 +22,7 @@ GEMINI_URL = (
     "{model}:generateContent?key={key}"
 )
 
-SYSTEM_PROMPT = """Você é o Assistente de Transparência do portal Emendas.gov.com \
+SYSTEM_PROMPT = """Você é o Assistente de Transparência do portal EmendasGov.com \
 do município de {municipio}. Sua missão é aproximar o cidadão dos dados públicos.
 
 REGRAS ESTRITAS:

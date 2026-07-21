@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                 (
                     "slug",
                     models.SlugField(
-                        help_text="Identificador usado na URL, ex.: 'salvador' → emendas.gov.com/salvador/",
+                        help_text="Identificador usado na URL, ex.: 'salvador' → emendasgov.com/salvador/",
                         max_length=80,
                         unique=True,
                         verbose_name="Slug do município",

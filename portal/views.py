@@ -28,7 +28,7 @@ def _empenhos_do_tenant(municipio_slug):
 
 
 # ---------------------------------------------------------------------------
-# Landing page da plataforma (identidade Emendas.gov.com)
+# Landing page da plataforma (identidade EmendasGov.com)
 # ---------------------------------------------------------------------------
 
 def landing(request):

@@ -1,5 +1,5 @@
 {% extends "gestor/base_gestor.html" %}
-{% load humanize %}
+{% load humanize formatos %}
 
 {% block gestor_conteudo %}
 <h2 class="titulo-secao">Emendas e empenhos importados</h2>
@@ -12,7 +12,7 @@
 <div class="cartao" style="margin-bottom: 16px;">
   <div style="display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:baseline;">
     <h3 style="margin:0;">Emenda {{ emenda.numero }}/{{ emenda.ano }} — {{ emenda.parlamentar }}</h3>
-    <strong>R$ {{ emenda.valor_total|floatformat:2|intcomma }}</strong>
+    <strong>R$ {{ emenda.valor_total|moeda }}</strong>
   </div>
   {% if emenda.fonte_importacao %}
     <p style="color:var(--texto-suave); font-size:.82rem; margin:4px 0 12px;">
@@ -34,7 +34,7 @@
           <td><strong>{{ empenho.numero }}</strong></td>
           <td>{{ empenho.data_empenho|date:"d/m/Y" }}</td>
           <td>{{ empenho.fornecedor_nome|default:"—" }}</td>
-          <td class="numero">{{ empenho.valor_empenhado|floatformat:2|intcomma }}</td>
+          <td class="numero">{{ empenho.valor_empenhado|moeda }}</td>
           <td>
             {% if empenho.status_rastreabilidade == "vinculado" %}
               <span class="selo conforme">Em Conformidade</span>

@@ -1,5 +1,5 @@
 {% extends "portal/base_portal.html" %}
-{% load humanize %}
+{% load humanize formatos %}
 {% block titulo %}Empenho {{ empenho.numero }} — {{ tenant.nome }}{% endblock %}
 
 {% block breadcrumbs %}
@@ -45,11 +45,11 @@
 <div class="cartao" style="margin-bottom: 18px;">
   <h3>Matriz de valores</h3>
   <div class="matriz-valores">
-    <div class="celula"><div class="rotulo">Valor empenhado</div><div class="valor">R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}</div></div>
-    <div class="celula"><div class="rotulo">Valor liquidado</div><div class="valor">R$ {{ empenho.valor_liquidado|floatformat:2|intcomma }}</div></div>
-    <div class="celula"><div class="rotulo">Valor pago</div><div class="valor">R$ {{ empenho.valor_pago|floatformat:2|intcomma }}</div></div>
-    <div class="celula"><div class="rotulo">A liquidar</div><div class="valor">R$ {{ empenho.valor_a_liquidar|floatformat:2|intcomma }}</div></div>
-    <div class="celula"><div class="rotulo">A pagar</div><div class="valor">R$ {{ empenho.valor_a_pagar|floatformat:2|intcomma }}</div></div>
+    <div class="celula"><div class="rotulo">Valor empenhado</div><div class="valor">R$ {{ empenho.valor_empenhado|moeda }}</div></div>
+    <div class="celula"><div class="rotulo">Valor liquidado</div><div class="valor">R$ {{ empenho.valor_liquidado|moeda }}</div></div>
+    <div class="celula"><div class="rotulo">Valor pago</div><div class="valor">R$ {{ empenho.valor_pago|moeda }}</div></div>
+    <div class="celula"><div class="rotulo">A liquidar</div><div class="valor">R$ {{ empenho.valor_a_liquidar|moeda }}</div></div>
+    <div class="celula"><div class="rotulo">A pagar</div><div class="valor">R$ {{ empenho.valor_a_pagar|moeda }}</div></div>
   </div>
 </div>
 

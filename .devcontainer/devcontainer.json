@@ -1,5 +1,5 @@
 {
-  "name": "Emendas.gov.com",
+  "name": "EmendasGov.com",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "postCreateCommand": "pip install -r requirements.txt && python manage.py migrate && python manage.py popular_demo",
   "postAttachCommand": {
@@ -8,7 +8,7 @@
   "forwardPorts": [8000],
   "portsAttributes": {
     "8000": {
-      "label": "Portal Emendas.gov.com",
+      "label": "Portal EmendasGov.com",
       "onAutoForward": "openBrowser"
     }
   },

@@ -1,5 +1,5 @@
 {% extends "gestor/base_gestor.html" %}
-{% load humanize %}
+{% load humanize formatos %}
 
 {% block gestor_conteudo %}
 <nav class="breadcrumbs" aria-label="Trilha de navegação">
@@ -11,7 +11,7 @@
 <h2 class="titulo-secao">Rastreabilidade do empenho {{ empenho.numero }}</h2>
 <p class="subtitulo-secao">
   Emenda {{ empenho.emenda.numero }}/{{ empenho.emenda.ano }} · {{ empenho.emenda.parlamentar }} ·
-  Empenhado: R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}
+  Empenhado: R$ {{ empenho.valor_empenhado|moeda }}
 </p>
 
 {% if empenho.prazo_pncp_estourado %}

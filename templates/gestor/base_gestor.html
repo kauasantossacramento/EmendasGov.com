@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block titulo %}Gestor — {{ tenant.nome }} · Emendas.gov.com{% endblock %}
+{% block titulo %}Gestor — {{ tenant.nome }} · EmendasGov.com{% endblock %}
 
 {% block cabecalho %}
 <header class="topo">
@@ -9,7 +9,7 @@
     {% endif %}
     <div class="titulo">
       <h1>Painel do Gestor · {{ tenant.nome }}</h1>
-      <p>Emendas.gov.com — módulo do gestor municipal</p>
+      <p>EmendasGov.com — módulo do gestor municipal</p>
     </div>
     <nav>
       <a href="{% url 'gestor:painel' tenant.slug %}">Visão geral</a>

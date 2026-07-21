@@ -1,5 +1,5 @@
 """
-Configurações do projeto Emendas.gov.com
+Configurações do projeto EmendasGov.com
 Portal Multi-Tenant de Transparência de Emendas Parlamentares.
 """
 import os
@@ -99,6 +99,8 @@ LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
+# Valores monetários usam o filtro |moeda (portal/templatetags/formatos.py);
+# não ativar USE_THOUSAND_SEPARATOR global, pois agruparia também os anos.
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]

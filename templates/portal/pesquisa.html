@@ -1,5 +1,5 @@
 {% extends "portal/base_portal.html" %}
-{% load humanize %}
+{% load humanize formatos %}
 {% block titulo %}Consulta de emendas — {{ tenant.nome }}{% endblock %}
 
 {% block breadcrumbs %}
@@ -75,9 +75,9 @@
           <td><strong>{{ emenda.numero }}</strong></td>
           <td>{{ emenda.parlamentar }}</td>
           <td>{{ emenda.ano }}</td>
-          <td class="numero">{{ emenda.valor_total|floatformat:2|intcomma }}</td>
+          <td class="numero">{{ emenda.valor_total|moeda }}</td>
           <td style="text-align:center;">
-            <a href="{% url 'portal:emenda_detalhe' tenant.slug emenda.pk %}"
+            <a class="link-detalhe" href="{% url 'portal:emenda_detalhe' tenant.slug emenda.pk %}"
                title="Ver detalhes da emenda {{ emenda.numero }}" data-spinner
                aria-label="Detalhes da emenda {{ emenda.numero }}">👁</a>
           </td>

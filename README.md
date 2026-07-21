@@ -1,4 +1,4 @@
-# Emendas.gov.com
+# EmendasGov.com
 
 Portal **multi-tenant de transparência de emendas parlamentares**: conecta o
 Transferegov/CGU (origem do recurso), a contabilidade municipal (empenho) e o

@@ -11,7 +11,7 @@ class Tenant(models.Model):
         "Slug do município",
         unique=True,
         max_length=80,
-        help_text="Identificador usado na URL, ex.: 'salvador' → emendas.gov.com/salvador/",
+        help_text="Identificador usado na URL, ex.: 'salvador' → emendasgov.com/salvador/",
     )
     nome = models.CharField("Nome do município", max_length=150)
     uf = models.CharField("UF", max_length=2, blank=True)

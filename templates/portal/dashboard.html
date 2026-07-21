@@ -1,5 +1,5 @@
 {% extends "portal/base_portal.html" %}
-{% load humanize %}
+{% load humanize formatos %}
 
 {% block portal_conteudo %}
 {% if tenant.avisos %}<div class="aviso">{{ tenant.avisos|safe }}</div>{% endif %}
@@ -33,7 +33,7 @@
   </div>
   <div class="cartao kpi kpi-verde">
     <div class="rotulo">Volume financeiro total</div>
-    <div class="valor">R$ {{ kpi_volume_total|floatformat:2|intcomma }}</div>
+    <div class="valor">R$ {{ kpi_volume_total|moeda }}</div>
   </div>
   <div class="cartao kpi kpi-amarelo">
     <div class="rotulo">Taxa de execução</div>
@@ -59,11 +59,11 @@
 <div class="grade-graficos">
   <div class="cartao largura-total">
     <h3>Evolução temporal — recursos recebidos mês a mês</h3>
-    <canvas id="grafico-mensal" height="90"></canvas>
+    <div class="grafico"><canvas id="grafico-mensal"></canvas></div>
   </div>
   <div class="cartao">
     <h3>Ranking de parlamentares (Top 5)</h3>
-    <canvas id="grafico-ranking"></canvas>
+    <div class="grafico"><canvas id="grafico-ranking"></canvas></div>
     <details style="margin-top:12px;">
       <summary style="cursor:pointer; color:var(--tenant-primaria); font-weight:700;">Ver todos</summary>
       <div class="tabela-rolagem" style="margin-top:10px;">
@@ -74,7 +74,7 @@
             <tr>
               <td>{{ r.parlamentar }}</td>
               <td class="numero">{{ r.qtd }}</td>
-              <td class="numero">{{ r.total|floatformat:2|intcomma }}</td>
+              <td class="numero">{{ r.total|moeda }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -84,12 +84,12 @@
   </div>
   <div class="cartao">
     <h3>Distribuição por área de aplicação</h3>
-    <canvas id="grafico-areas"></canvas>
+    <div class="grafico"><canvas id="grafico-areas"></canvas></div>
   </div>
   <div class="cartao largura-total">
     <h3>Rastreabilidade do recurso — do parlamentar ao fornecedor</h3>
     <p class="subtitulo-secao" style="font-size:.85rem;">Fluxos com largura proporcional aos valores (parlamentar → município → contratos/fornecedores).</p>
-    <canvas id="grafico-sankey" height="120"></canvas>
+    <div class="grafico alto"><canvas id="grafico-sankey"></canvas></div>
   </div>
 </div>
 
@@ -115,6 +115,12 @@
   const amarelo = estilo.getPropertyValue("--tenant-destaque").trim() || "#FFCD07";
   const paleta = [azul, verde, amarelo, "#5992ED", "#4CAF7D", "#B78D00", "#8A63D2"];
   const reais = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  // Formato compacto para eixos (ex.: "R$ 1,2 mi"), legível em telas pequenas
+  const compacto = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL",
+    notation: "compact", maximumFractionDigits: 1,
+  });
+  const celular = window.matchMedia("(max-width: 640px)").matches;
 
   const mensalCtx = document.getElementById("grafico-mensal");
   if (mensalCtx) new Chart(mensalCtx, {
@@ -133,9 +139,14 @@
       }],
     },
     options: {
+      responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false },
         tooltip: { callbacks: { label: (c) => reais(c.parsed.y) } } },
-      scales: { y: { ticks: { callback: (v) => "R$ " + (v / 1000).toLocaleString("pt-BR") + " mil" } } },
+      scales: {
+        y: { ticks: { callback: (v) => compacto.format(v), maxTicksLimit: 6 } },
+        x: { ticks: { maxRotation: 0, autoSkip: true } },
+      },
     },
   });
 
@@ -148,9 +159,18 @@
     },
     options: {
       indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { display: false },
         tooltip: { callbacks: { label: (c) => reais(c.parsed.x) } } },
-      scales: { x: { ticks: { callback: (v) => "R$ " + (v / 1000).toLocaleString("pt-BR") + " mil" } } },
+      scales: {
+        x: { ticks: { callback: (v) => compacto.format(v), maxTicksLimit: celular ? 4 : 7 } },
+        // Nomes longos de parlamentares: abrevia no celular
+        y: { ticks: { callback: function (v) {
+          const rotulo = this.getLabelForValue(v);
+          return celular && rotulo.length > 18 ? rotulo.slice(0, 17) + "…" : rotulo;
+        } } },
+      },
     },
   });
 
@@ -163,6 +183,8 @@
     },
     options: {
       cutout: "62%",
+      responsive: true,
+      maintainAspectRatio: false,
       plugins: { legend: { position: "bottom" },
         tooltip: { callbacks: { label: (c) => c.label + ": " + reais(c.parsed) } } },
     },
@@ -181,6 +203,8 @@
       }],
     },
     options: {
+      responsive: true,
+      maintainAspectRatio: false,
       plugins: { tooltip: { callbacks: {
         label: (c) => c.raw.from + " → " + c.raw.to + ": " + reais(c.raw.flow),
       } } },

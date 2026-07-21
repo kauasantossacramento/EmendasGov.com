@@ -1,5 +1,5 @@
 """
-Rotas do Emendas.gov.com.
+Rotas do EmendasGov.com.
 
 Arquitetura multi-tenant por URL path:
   /                       → landing page da plataforma

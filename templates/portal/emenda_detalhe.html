@@ -1,5 +1,5 @@
 {% extends "portal/base_portal.html" %}
-{% load humanize %}
+{% load humanize formatos %}
 {% block titulo %}Emenda {{ emenda.numero }}/{{ emenda.ano }} — {{ tenant.nome }}{% endblock %}
 
 {% block breadcrumbs %}
@@ -21,19 +21,19 @@
 <div class="grade-kpi">
   <div class="cartao kpi">
     <div class="rotulo">Valor do orçamento</div>
-    <div class="valor">R$ {{ emenda.valor_total|floatformat:2|intcomma }}</div>
+    <div class="valor">R$ {{ emenda.valor_total|moeda }}</div>
   </div>
   <div class="cartao kpi">
     <div class="rotulo">Valor empenhado</div>
-    <div class="valor">R$ {{ emenda.total_empenhado|floatformat:2|intcomma }}</div>
+    <div class="valor">R$ {{ emenda.total_empenhado|moeda }}</div>
   </div>
   <div class="cartao kpi kpi-amarelo">
     <div class="rotulo">Valor liquidado</div>
-    <div class="valor">R$ {{ emenda.total_liquidado|floatformat:2|intcomma }}</div>
+    <div class="valor">R$ {{ emenda.total_liquidado|moeda }}</div>
   </div>
   <div class="cartao kpi kpi-verde">
     <div class="rotulo">Valor pago</div>
-    <div class="valor">R$ {{ emenda.total_pago|floatformat:2|intcomma }}</div>
+    <div class="valor">R$ {{ emenda.total_pago|moeda }}</div>
   </div>
 </div>
 
@@ -51,13 +51,13 @@
     <summary>
       <strong>Empenho {{ empenho.numero }}</strong>
       <span style="color:var(--texto-suave); font-weight:400;">{{ empenho.fornecedor_nome|default:"Fornecedor não informado" }}</span>
-      <span style="margin-left:auto; font-variant-numeric:tabular-nums;">R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}</span>
+      <span style="margin-left:auto; font-variant-numeric:tabular-nums;">R$ {{ empenho.valor_empenhado|moeda }}</span>
     </summary>
     <div class="conteudo">
       <div class="matriz-valores" style="margin-bottom: 14px;">
-        <div class="celula"><div class="rotulo">Empenhado</div><div class="valor">R$ {{ empenho.valor_empenhado|floatformat:2|intcomma }}</div></div>
-        <div class="celula"><div class="rotulo">Liquidado</div><div class="valor">R$ {{ empenho.valor_liquidado|floatformat:2|intcomma }}</div></div>
-        <div class="celula"><div class="rotulo">Pago</div><div class="valor">R$ {{ empenho.valor_pago|floatformat:2|intcomma }}</div></div>
+        <div class="celula"><div class="rotulo">Empenhado</div><div class="valor">R$ {{ empenho.valor_empenhado|moeda }}</div></div>
+        <div class="celula"><div class="rotulo">Liquidado</div><div class="valor">R$ {{ empenho.valor_liquidado|moeda }}</div></div>
+        <div class="celula"><div class="rotulo">Pago</div><div class="valor">R$ {{ empenho.valor_pago|moeda }}</div></div>
       </div>
       <a class="botao pequeno" data-spinner
          href="{% url 'portal:empenho_detalhe' tenant.slug emenda.pk empenho.pk %}">
