@@ -78,6 +78,13 @@ IBGE configurado no tenant e a chave da API do Portal da Transparência.
 
 ## Variáveis de ambiente
 
+O projeto lê automaticamente um arquivo `.env` na raiz. Comece copiando o
+modelo comentado, que explica onde obter cada chave (CGU, Gemini, reCAPTCHA):
+
+```bash
+cp .env.example .env
+```
+
 | Variável                        | Uso                                        |
 |---------------------------------|---------------------------------------------|
 | `DJANGO_SECRET_KEY`             | chave secreta em produção                  |
