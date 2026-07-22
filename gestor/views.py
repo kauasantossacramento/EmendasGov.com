@@ -68,14 +68,44 @@ def painel_desenvolvedor(request):
     (o superusuário vê tudo o que o gestor vê) e para os cadastros do
     Django admin (municípios, gestores, configuração da plataforma).
     """
-    from django.db.models import Count
+    import threading
 
-    from integrations.models import SincronizacaoEmendas
+    from django.db.models import Count
+    from django.utils import timezone as tz
+
+    from integrations.models import CargaNacional, EmendaNacional, SincronizacaoEmendas
+    from integrations.services.federal import sincronizar_nacional
 
     if not request.user.is_authenticated:
         return redirect(f"{reverse('login_global')}?next=/dev/")
     if not request.user.is_superuser:
         raise Http404("Área restrita ao administrador da plataforma.")
+
+    if request.method == "POST":
+        ano = request.POST.get("ano_nacional", "").strip()
+        if ano.isdigit():
+            em_curso = CargaNacional.objects.filter(
+                ano=int(ano), status="executando",
+                iniciado_em__gte=tz.now() - tz.timedelta(hours=2),
+            ).exists()
+            if em_curso:
+                messages.warning(
+                    request, f"Já existe uma carga nacional de {ano} em andamento."
+                )
+            else:
+                threading.Thread(
+                    target=sincronizar_nacional,
+                    args=(int(ano),),
+                    kwargs={"forcar": True},
+                    name=f"carga-nacional-{ano}",
+                    daemon=True,
+                ).start()
+                messages.info(
+                    request,
+                    f"Carga nacional de {ano} iniciada em segundo plano — "
+                    "acompanhe nesta tela.",
+                )
+        return redirect("painel_dev")
 
     tenants = list(
         Tenant.objects.annotate(qtd_emendas=Count("emendas", distinct=True))
@@ -87,8 +117,27 @@ def painel_desenvolvedor(request):
             emenda__tenant=tenant
         ).pendentes_de_vinculo().count()
 
+    ano_atual = tz.localdate().year
+    resumo_nacional = []
+    contagens = dict(
+        EmendaNacional.objects.values_list("ano")
+        .annotate(qtd=Count("id"))
+        .values_list("ano", "qtd")
+    )
+    for ano in range(ano_atual, ano_atual - 8, -1):
+        ultima = (
+            CargaNacional.objects.filter(ano=ano).order_by("-iniciado_em").first()
+        )
+        resumo_nacional.append({
+            "ano": ano,
+            "registros": contagens.get(ano, 0),
+            "ultima": ultima,
+        })
+
     return render(request, "gestor/dev.html", {
         "tenants": tenants,
+        "resumo_nacional": resumo_nacional,
+        "total_nacional": EmendaNacional.objects.count(),
         "total_municipios": len(tenants),
         "total_emendas": Emenda.objects.count(),
         "total_gestores": GestorMunicipal.objects.count(),
@@ -159,13 +208,7 @@ def sincronizacao(request, municipio_slug):
         apenas_ano = request.POST.get("ano", "").strip()
         apenas_ano = int(apenas_ano) if apenas_ano.isdigit() else None
 
-        if not request.tenant.codigo_ibge:
-            messages.error(
-                request,
-                "Município sem código IBGE configurado — solicite ao "
-                "administrador da plataforma antes de sincronizar.",
-            )
-        elif sincronizacao_em_andamento(request.tenant):
+        if sincronizacao_em_andamento(request.tenant):
             messages.warning(
                 request,
                 "Já existe uma sincronização em andamento — acompanhe o "

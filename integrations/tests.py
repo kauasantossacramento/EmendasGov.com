@@ -175,9 +175,20 @@ class SincronizacaoIncrementalTests(TestCase):
             federal.anos_pendentes(self.tenant), [ANO_ATUAL - 2, ANO_ATUAL]
         )
 
-    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
-    def test_descarta_emendas_de_outros_municipios(self, api):
-        """A API da CGU pode devolver o Brasil inteiro — só gravamos o tenant."""
+    @staticmethod
+    def _envelhecer_carga(ano):
+        """Faz a carga nacional do ano parecer antiga (força nova consulta)."""
+        from .models import CargaNacional
+
+        CargaNacional.objects.filter(ano=ano).update(
+            concluido_em=timezone.now() - timedelta(hours=25)
+        )
+
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
+    def test_materializa_apenas_emendas_do_municipio(self, api):
+        """A base nacional guarda o Brasil; o tenant só recebe o que é dele."""
+        from .models import EmendaNacional
+
         api.return_value = iter([
             resposta_api("9001", "Dep. Alfa", "1.000,00"),
             resposta_api("8001", "Dep. Outro", "2.000,00", localidade="Outra Cidade - XX"),
@@ -187,16 +198,18 @@ class SincronizacaoIncrementalTests(TestCase):
         self.assertEqual(criadas, 1)
         self.assertEqual(Emenda.objects.count(), 1)
         self.assertEqual(Emenda.objects.get().numero, "9001")
+        # Nada se perde: as três ficam guardadas na base nacional
+        self.assertEqual(EmendaNacional.objects.count(), 3)
 
-    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
     def test_valores_brasileiros_gravados_corretamente(self, api):
         api.return_value = iter([resposta_api("9001", "Dep. Alfa", "1.503.000,00")])
         federal.sincronizar_emendas(self.tenant, ANO_ATUAL)
         self.assertEqual(str(Emenda.objects.get().valor_total), "1503000.00")
 
-    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
     def test_sincronizar_apenas_um_ano(self, api):
-        api.side_effect = lambda ibge, ano: iter(
+        api.side_effect = lambda ano: iter(
             [resposta_api(f"{ano}01", "Dep. Alfa", "1.000,00")]
         )
         execucoes = federal.sincronizar_tenant(
@@ -205,7 +218,7 @@ class SincronizacaoIncrementalTests(TestCase):
         self.assertEqual([e.ano for e in execucoes], [ANO_ATUAL - 1])
         self.assertEqual(api.call_count, 1)
 
-    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
     def test_sincronizar_grava_no_banco_sem_duplicar(self, api):
         api.return_value = iter([
             resposta_api("9001", "Dep. Alfa", "100000.00"),
@@ -215,6 +228,7 @@ class SincronizacaoIncrementalTests(TestCase):
         self.assertEqual(Emenda.objects.count(), 2)
 
         # Segunda passada com os mesmos registros (valor alterado em um deles):
+        self._envelhecer_carga(ANO_ATUAL)
         api.return_value = iter([
             resposta_api("9001", "Dep. Alfa", "150000.00"),
             resposta_api("9002", "Dep. Beta", "200000.00"),
@@ -224,9 +238,19 @@ class SincronizacaoIncrementalTests(TestCase):
         atualizada = Emenda.objects.get(numero="9001")
         self.assertEqual(str(atualizada.valor_total), "150000.00")
 
-    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
+    def test_carga_nacional_recente_nao_reconsulta_a_api(self, api):
+        """Ano corrente: dentro da validade de 20h, não baixa de novo."""
+        api.side_effect = lambda ano: iter(
+            [resposta_api("9001", "Dep. Alfa", "1.000,00")]
+        )
+        federal.sincronizar_emendas(self.tenant, ANO_ATUAL)
+        federal.sincronizar_emendas(self.tenant, ANO_ATUAL)  # 2ª: usa a base
+        self.assertEqual(api.call_count, 1)
+
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
     def test_sincronizar_tenant_registra_logs(self, api):
-        api.side_effect = lambda ibge, ano: iter(
+        api.side_effect = lambda ano: iter(
             [resposta_api(f"{ano}01", "Dep. Alfa", "1000.00")]
         )
         execucoes = federal.sincronizar_tenant(self.tenant)
@@ -236,13 +260,12 @@ class SincronizacaoIncrementalTests(TestCase):
         )
         self.assertEqual(Emenda.objects.count(), 3)
         # Próxima rodada: só o ano corrente é reprocessado.
-        api.side_effect = lambda ibge, ano: iter([])
         segunda = federal.sincronizar_tenant(self.tenant)
         self.assertEqual([e.ano for e in segunda], [ANO_ATUAL])
 
-    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
     def test_falha_na_api_gera_log_de_erro_e_nao_interrompe(self, api):
-        def lancar(ibge, ano):
+        def lancar(ano):
             if ano == ANO_ATUAL - 1:
                 raise RuntimeError("API fora do ar")
             return iter([resposta_api(f"{ano}01", "Dep. Alfa", "1000.00")])
@@ -252,3 +275,30 @@ class SincronizacaoIncrementalTests(TestCase):
         por_ano = {e.ano: e.status for e in execucoes}
         self.assertEqual(por_ano[ANO_ATUAL - 1], StatusSincronizacao.ERRO)
         self.assertEqual(por_ano[ANO_ATUAL], StatusSincronizacao.SUCESSO)
+
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_do_ano")
+    def test_municipio_novo_nasce_com_dados_da_base_nacional(self, api):
+        """A estratégia-chave: cadastrar prefeitura → dados na hora, sem API."""
+        api.return_value = iter([
+            resposta_api("9001", "Dep. Alfa", "1.000,00"),
+            resposta_api("7001", "Dep. Gama", "5.000,00",
+                         localidade="Cidade Nova - BA (MUNICÍPIO)"),
+        ])
+        federal.sincronizar_emendas(self.tenant, ANO_ATUAL)  # popula a base
+        api.reset_mock()
+
+        novo = Tenant.objects.create(
+            slug="cidade-nova", nome="Cidade Nova",
+            ano_inicio_sincronizacao=ANO_ATUAL - 2,
+        )
+        # O sinal de criação materializou da base nacional, sem chamar a API:
+        self.assertEqual(api.call_count, 0)
+        emendas_novo = Emenda.objects.filter(tenant=novo)
+        self.assertEqual(emendas_novo.count(), 1)
+        self.assertEqual(emendas_novo.get().numero, "7001")
+        # E o log de sincronização registra o exercício aproveitado:
+        self.assertTrue(
+            SincronizacaoEmendas.objects.filter(
+                tenant=novo, ano=ANO_ATUAL, status=StatusSincronizacao.SUCESSO
+            ).exists()
+        )

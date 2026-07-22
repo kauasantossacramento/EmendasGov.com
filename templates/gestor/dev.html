@@ -56,6 +56,50 @@
   </div>
   {% endif %}
 
+  <h3 style="margin: 26px 0 10px;">Base nacional de emendas</h3>
+  <p class="subtitulo-secao" style="font-size:.88rem;">
+    Uma carga por exercício abastece todos os municípios: ao cadastrar uma
+    prefeitura, as emendas dela são materializadas daqui na hora, sem
+    consultar a API. Total na base: <strong>{{ total_nacional }}</strong> registros.
+  </p>
+  <div class="cartao" style="padding:0; overflow:hidden; margin-bottom: 10px;">
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Exercício</th><th class="numero">Registros</th>
+            <th>Última carga</th><th>Status</th><th style="text-align:center;">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for linha in resumo_nacional %}
+          <tr>
+            <td><strong>{{ linha.ano }}</strong></td>
+            <td class="numero">{{ linha.registros }}</td>
+            <td>{{ linha.ultima.concluido_em|date:"d/m/Y H:i"|default:"—" }}</td>
+            <td>
+              {% if linha.ultima.status == "sucesso" %}<span class="selo conforme">Sucesso</span>
+              {% elif linha.ultima.status == "executando" %}<span class="selo pendente">Executando</span>
+              {% elif linha.ultima.status == "erro" %}<span class="selo cancelado">Erro</span>
+              {% else %}<span class="selo pendente">Nunca carregada</span>{% endif %}
+            </td>
+            <td style="text-align:center;">
+              <form method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="ano_nacional" value="{{ linha.ano }}">
+                <button type="submit" class="botao pequeno secundario"
+                        {% if linha.ultima.status == "executando" %}disabled{% endif %}>
+                  ⟳ Carregar {{ linha.ano }}
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <h3 style="margin: 26px 0 10px;">Municípios</h3>
   {% if tenants %}
   <div class="cartao" style="padding:0; overflow:hidden;">

@@ -55,6 +55,26 @@ Acesse `http://localhost:8000/demo/` (portal público) e
 Os dados importados são **gravados no banco local** — o portal público lê
 sempre do banco e continua no ar mesmo com as APIs federais indisponíveis.
 
+### Base nacional (arquitetura em duas camadas)
+
+A API de emendas da CGU devolve o Brasil inteiro. Em vez de descartar o que
+não é do município, o sistema guarda **tudo** na base nacional
+(`EmendaNacional`, uma carga por exercício via `CargaNacional`) e cada
+município apenas **materializa** dali as suas emendas — casando a
+localidade do gasto com o nome do município:
+
+- **Cadastrou uma prefeitura nova?** As emendas dela são materializadas na
+  hora, a partir da base nacional já carregada — sem nenhuma chamada à API.
+- **Uma carga por ano serve a todos** os municípios (antes, cada um
+  repetiria o download do país inteiro).
+- Carga manual pelo painel do desenvolvedor (/dev/, seção "Base nacional")
+  ou via terminal: `python manage.py sincronizar_nacional --ano 2024`.
+
+**Periodicidade:** exercícios encerrados são baixados **uma única vez**; o
+**ano corrente** é revalidado no máximo a cada **20 horas** (cliques do
+gestor dentro desse intervalo usam a base local, sem re-baixar o país). O
+agendamento da atualização é o cron diário documentado abaixo.
+
 ```bash
 python manage.py sincronizar_emendas --tenant demo
 ```

@@ -1,6 +1,28 @@
 from django.contrib import admin
 
-from .models import SincronizacaoEmendas
+from .models import CargaNacional, EmendaNacional, SincronizacaoEmendas
+
+
+@admin.register(CargaNacional)
+class CargaNacionalAdmin(admin.ModelAdmin):
+    list_display = (
+        "ano", "status", "registros_novos", "registros_atualizados",
+        "iniciado_em", "concluido_em",
+    )
+    list_filter = ("status", "ano")
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(EmendaNacional)
+class EmendaNacionalAdmin(admin.ModelAdmin):
+    list_display = ("numero", "ano", "autor", "localidade", "valor_total")
+    list_filter = ("ano",)
+    search_fields = ("numero", "autor", "localidade")
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(SincronizacaoEmendas)

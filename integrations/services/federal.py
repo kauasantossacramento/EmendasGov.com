@@ -64,24 +64,6 @@ def _normalizar(texto):
     )
 
 
-def _refere_ao_municipio(registro, tenant):
-    """
-    O endpoint /api-de-dados/emendas da CGU não filtra por município de
-    forma confiável — pode devolver emendas do país inteiro. Validamos
-    cada registro pela localidade do gasto (e campos afins) antes de
-    gravar, para não poluir o portal com emendas de outras cidades.
-    """
-    campos = " ".join(
-        str(registro.get(campo, ""))
-        for campo in ("localidadeDoGasto", "municipio", "nomeMunicipio")
-    )
-    codigo = str(registro.get("codigoIbgeMunicipio", "") or registro.get("codigoMunicipio", ""))
-    if tenant.codigo_ibge and codigo and codigo.strip() == tenant.codigo_ibge.strip():
-        return True
-    alvo = _normalizar(tenant.nome)
-    return bool(alvo) and alvo in _normalizar(campos)
-
-
 class PortalTransparenciaClient:
     """
     Consulta emendas parlamentares na API do Portal da Transparência (CGU).
@@ -99,17 +81,13 @@ class PortalTransparenciaClient:
             "Accept": "application/json",
         }
 
-    def emendas_por_municipio(self, codigo_ibge, ano):
+    def emendas_do_ano(self, ano):
         """GET /api-de-dados/emendas — pagina com throttle até esgotar o ano."""
         pagina = 1
         while pagina <= settings.CGU_MAX_PAGINAS:
             resp = requests.get(
                 f"{self.base}/api-de-dados/emendas",
-                params={
-                    "codigoIbgeMunicipio": codigo_ibge,
-                    "ano": ano,
-                    "pagina": pagina,
-                },
+                params={"ano": ano, "pagina": pagina},
                 headers=self.headers,
                 timeout=TIMEOUT,
             )
@@ -270,36 +248,105 @@ def sincronizar_tenant_em_segundo_plano(tenant, ano_fim=None, apenas_ano=None):
     return True
 
 
-def sincronizar_emendas(tenant, ano):
-    """
-    Importa/atualiza as emendas do município a partir do Portal da
-    Transparência (CGU). Retorna (criadas, atualizadas).
-    """
-    if not tenant.codigo_ibge:
-        raise ValueError(
-            f"Tenant '{tenant.slug}' sem código IBGE configurado — "
-            "impossível consultar as APIs federais."
-        )
+# ---------------------------------------------------------------------------
+# Base nacional: uma carga por ano abastece todos os municípios
+# ---------------------------------------------------------------------------
 
+# Ano corrente: uma nova carga nacional só é feita se a última tiver mais
+# que este intervalo (evita re-baixar o Brasil a cada clique de gestor).
+CARGA_NACIONAL_VALIDADE_HORAS = 20
+
+
+def sincronizar_nacional(ano, forcar=False):
+    """
+    Baixa TODAS as emendas do exercício (Brasil inteiro) para a base
+    nacional (EmendaNacional). Executada uma única vez por exercício
+    histórico; para o ano corrente, revalidada a cada 20h.
+
+    Retorna o registro CargaNacional da carga usada (nova ou aproveitada).
+    """
+    from integrations.models import CargaNacional, EmendaNacional, StatusSincronizacao
+
+    ultima = (
+        CargaNacional.objects.filter(ano=ano, status=StatusSincronizacao.SUCESSO)
+        .order_by("-concluido_em")
+        .first()
+    )
+    if ultima and not forcar:
+        if ano < timezone.localdate().year:
+            return ultima  # exercício encerrado: carga única basta
+        if ultima.concluido_em and (
+            timezone.now() - ultima.concluido_em
+            < timedelta(hours=CARGA_NACIONAL_VALIDADE_HORAS)
+        ):
+            return ultima  # ano corrente já atualizado nas últimas horas
+
+    log = CargaNacional.objects.create(ano=ano)
     client = PortalTransparenciaClient()
-    criadas = atualizadas = ignoradas = 0
-    for registro in client.emendas_por_municipio(tenant.codigo_ibge, ano):
-        numero = registro.get("codigoEmenda") or registro.get("numeroEmenda")
-        if not numero:
-            continue
-        if not _refere_ao_municipio(registro, tenant):
-            ignoradas += 1
-            continue
+    novos = atualizados = 0
+    try:
+        for registro in client.emendas_do_ano(ano):
+            numero = registro.get("codigoEmenda") or registro.get("numeroEmenda")
+            if not numero:
+                continue
+            localidade = registro.get("localidadeDoGasto", "") or ""
+            _, criado = EmendaNacional.objects.update_or_create(
+                numero=str(numero),
+                ano=int(registro.get("ano") or ano),
+                defaults={
+                    "autor": registro.get("autor", "") or "",
+                    "funcao": registro.get("funcao", "") or "",
+                    "localidade": localidade[:255],
+                    "localidade_normalizada": _normalizar(localidade)[:255],
+                    "valor_total": _decimal(registro.get("valorEmpenhado")),
+                    "dados": registro,
+                },
+            )
+            if criado:
+                novos += 1
+            else:
+                atualizados += 1
+    except Exception as exc:  # noqa: BLE001
+        log.status = StatusSincronizacao.ERRO
+        log.mensagem_erro = str(exc)[:2000]
+        log.concluido_em = timezone.now()
+        log.save()
+        raise
+    log.status = StatusSincronizacao.SUCESSO
+    log.registros_novos = novos
+    log.registros_atualizados = atualizados
+    log.concluido_em = timezone.now()
+    log.save()
+    logger.info("Carga nacional %s: %s novas, %s atualizadas", ano, novos, atualizados)
+    return log
+
+
+def materializar_emendas(tenant, ano):
+    """
+    Copia da base nacional para o município as emendas cuja localidade do
+    gasto referencia o tenant. Sem chamadas à API — é só banco de dados.
+    Retorna (criadas, atualizadas).
+    """
+    from integrations.models import EmendaNacional
+
+    alvo = _normalizar(tenant.nome)
+    if not alvo:
+        return 0, 0
+    criadas = atualizadas = 0
+    registros = EmendaNacional.objects.filter(
+        ano=ano, localidade_normalizada__contains=alvo
+    )
+    for registro in registros:
         _, criado = Emenda.objects.update_or_create(
             tenant=tenant,
-            numero=str(numero),
-            ano=int(registro.get("ano") or ano),
+            numero=registro.numero,
+            ano=registro.ano,
             defaults={
-                "parlamentar": registro.get("autor", "") or "Não informado",
-                "valor_total": _decimal(registro.get("valorEmpenhado")),
-                "area_aplicacao": _area_por_funcao(registro.get("funcao", "")),
-                "objeto": registro.get("localidadeDoGasto", "") or "",
-                "codigo_transferegov": str(registro.get("codigoEmenda") or ""),
+                "parlamentar": registro.autor or "Não informado",
+                "valor_total": registro.valor_total,
+                "area_aplicacao": _area_por_funcao(registro.funcao),
+                "objeto": registro.localidade,
+                "codigo_transferegov": registro.numero,
                 "fonte_importacao": "cgu",
                 "importado_em": timezone.now(),
             },
@@ -308,8 +355,54 @@ def sincronizar_emendas(tenant, ano):
             criadas += 1
         else:
             atualizadas += 1
+    return criadas, atualizadas
+
+
+def sincronizar_emendas(tenant, ano):
+    """
+    Garante a base nacional do exercício (baixando da CGU apenas se ainda
+    não existir ou estiver vencida) e materializa as emendas do município
+    a partir dela. Retorna (criadas, atualizadas).
+    """
+    sincronizar_nacional(ano)
+    criadas, atualizadas = materializar_emendas(tenant, ano)
     logger.info(
-        "Sync %s/%s: %s criadas, %s atualizadas, %s de outros municípios ignoradas",
-        tenant.slug, ano, criadas, atualizadas, ignoradas,
+        "Sync %s/%s: %s criadas, %s atualizadas (via base nacional)",
+        tenant.slug, ano, criadas, atualizadas,
     )
     return criadas, atualizadas
+
+
+def materializar_tenant_completo(tenant):
+    """
+    Ao criar um município no painel, aproveita tudo o que a base nacional
+    já tem: materializa cada exercício carregado e registra o log de
+    sincronização correspondente — o portal nasce com dados, sem API.
+    """
+    from integrations.models import (
+        CargaNacional,
+        SincronizacaoEmendas,
+        StatusSincronizacao,
+    )
+
+    anos_carregados = (
+        CargaNacional.objects.filter(status=StatusSincronizacao.SUCESSO)
+        .values_list("ano", flat=True)
+        .distinct()
+    )
+    execucoes = []
+    for ano in sorted(anos_carregados):
+        if ano < tenant.ano_inicio_sincronizacao:
+            continue
+        criadas, atualizadas = materializar_emendas(tenant, ano)
+        execucoes.append(
+            SincronizacaoEmendas.objects.create(
+                tenant=tenant,
+                ano=ano,
+                status=StatusSincronizacao.SUCESSO,
+                emendas_criadas=criadas,
+                emendas_atualizadas=atualizadas,
+                concluido_em=timezone.now(),
+            )
+        )
+    return execucoes
