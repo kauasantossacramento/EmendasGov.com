@@ -32,6 +32,15 @@ class ConfiguracaoPlataforma(models.Model):
             "números reais ainda são pequenos)."
         ),
     )
+    sincronizacao_em_segundo_plano = models.BooleanField(
+        "Sincronização em segundo plano",
+        default=True,
+        help_text=(
+            "Ativado: ao clicar em 'Sincronizar', a carga roda em segundo "
+            "plano e o gestor pode sair da página (o histórico mostra o "
+            "andamento). Desativado: a página aguarda a carga terminar."
+        ),
+    )
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

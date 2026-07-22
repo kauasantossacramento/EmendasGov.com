@@ -1,10 +1,14 @@
+import time
+from datetime import timedelta
 from unittest import mock
 
+from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
 
 from emendas.models import Emenda
-from tenants.models import Tenant
+from portal.models import ConfiguracaoPlataforma
+from tenants.models import GestorMunicipal, Tenant
 
 from .models import SincronizacaoEmendas, StatusSincronizacao
 from .services import federal
@@ -36,6 +40,81 @@ class ConversaoValoresTests(TestCase):
         self.assertEqual(str(federal._decimal(None)), "0.00")
         self.assertEqual(str(federal._decimal("abc")), "0.00")
         self.assertEqual(str(federal._decimal("")), "0.00")
+
+
+class SegundoPlanoTests(TestCase):
+    def setUp(self):
+        self.tenant = Tenant.objects.create(
+            slug="alfa", nome="Município Alfa", codigo_ibge="2900000",
+        )
+        usuario = User.objects.create_user("gestor", password="senha123")
+        GestorMunicipal.objects.create(usuario=usuario, tenant=self.tenant)
+        self.client.login(username="gestor", password="senha123")
+
+    def test_trava_detecta_execucao_recente(self):
+        SincronizacaoEmendas.objects.create(
+            tenant=self.tenant, ano=ANO_ATUAL,
+            status=StatusSincronizacao.EXECUTANDO,
+        )
+        self.assertTrue(federal.sincronizacao_em_andamento(self.tenant))
+
+    def test_execucao_orfa_antiga_nao_bloqueia(self):
+        log = SincronizacaoEmendas.objects.create(
+            tenant=self.tenant, ano=ANO_ATUAL,
+            status=StatusSincronizacao.EXECUTANDO,
+        )
+        SincronizacaoEmendas.objects.filter(pk=log.pk).update(
+            iniciado_em=timezone.now() - timedelta(hours=3)
+        )
+        self.assertFalse(federal.sincronizacao_em_andamento(self.tenant))
+
+    def test_nao_inicia_duplicada(self):
+        SincronizacaoEmendas.objects.create(
+            tenant=self.tenant, ano=ANO_ATUAL,
+            status=StatusSincronizacao.EXECUTANDO,
+        )
+        self.assertFalse(
+            federal.sincronizar_tenant_em_segundo_plano(self.tenant)
+        )
+
+    @mock.patch("gestor.views.sincronizar_tenant_em_segundo_plano")
+    def test_view_usa_segundo_plano_quando_ativado(self, iniciar):
+        config = ConfiguracaoPlataforma.carregar()
+        config.sincronizacao_em_segundo_plano = True
+        config.save()
+        resposta = self.client.post("/admin/alfa/sincronizacao/", {"ano": ""})
+        self.assertEqual(resposta.status_code, 302)
+        iniciar.assert_called_once()
+
+    @mock.patch("gestor.views.sincronizar_tenant")
+    @mock.patch("gestor.views.sincronizar_tenant_em_segundo_plano")
+    def test_view_roda_sincrono_quando_desativado(self, iniciar, sincrono):
+        config = ConfiguracaoPlataforma.carregar()
+        config.sincronizacao_em_segundo_plano = False
+        config.save()
+        sincrono.return_value = []
+        self.client.post("/admin/alfa/sincronizacao/", {"ano": ""})
+        iniciar.assert_not_called()
+        sincrono.assert_called_once()
+
+    @mock.patch("gestor.views.sincronizar_tenant_em_segundo_plano")
+    def test_view_bloqueia_quando_ja_em_andamento(self, iniciar):
+        SincronizacaoEmendas.objects.create(
+            tenant=self.tenant, ano=ANO_ATUAL,
+            status=StatusSincronizacao.EXECUTANDO,
+        )
+        self.client.post("/admin/alfa/sincronizacao/", {"ano": ""})
+        iniciar.assert_not_called()
+
+    @mock.patch.object(federal, "sincronizar_tenant")
+    def test_thread_executa_e_fecha_conexoes(self, sincronizar):
+        iniciou = federal.sincronizar_tenant_em_segundo_plano(self.tenant)
+        self.assertTrue(iniciou)
+        for _ in range(50):  # aguarda a thread concluir (máx. ~1s)
+            if sincronizar.called:
+                break
+            time.sleep(0.02)
+        sincronizar.assert_called_once()
 
 
 class SeloAtualizacaoTests(TestCase):

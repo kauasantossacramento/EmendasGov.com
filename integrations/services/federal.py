@@ -7,8 +7,10 @@ O ciclo de importação:
   3. PNCP                → execução do recurso (ContratoPNCP)
 """
 import logging
+import threading
 import time
 import unicodedata
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 import requests
@@ -216,6 +218,56 @@ def sincronizar_tenant(tenant, ano_fim=None, apenas_ano=None):
         log.save()
         execucoes.append(log)
     return execucoes
+
+
+def sincronizacao_em_andamento(tenant):
+    """
+    Há uma sincronização deste tenant rodando agora?
+
+    Considera apenas execuções 'executando' recentes (últimas 2 horas):
+    se o servidor reiniciar no meio de uma carga, o registro órfão não
+    bloqueia novas sincronizações para sempre.
+    """
+    from integrations.models import SincronizacaoEmendas, StatusSincronizacao
+
+    limite = timezone.now() - timedelta(hours=2)
+    return SincronizacaoEmendas.objects.filter(
+        tenant=tenant,
+        status=StatusSincronizacao.EXECUTANDO,
+        iniciado_em__gte=limite,
+    ).exists()
+
+
+def sincronizar_tenant_em_segundo_plano(tenant, ano_fim=None, apenas_ano=None):
+    """
+    Dispara a sincronização em uma thread de segundo plano e retorna de
+    imediato — o gestor pode sair da página; o andamento fica visível no
+    histórico (registros 'Executando' → 'Sucesso'/'Erro').
+
+    Retorna True se a carga foi iniciada, False se já havia uma em
+    andamento para o tenant (trava anti-duplicidade).
+    """
+    from django.db import connections
+
+    if sincronizacao_em_andamento(tenant):
+        return False
+
+    def _executar():
+        try:
+            sincronizar_tenant(tenant, ano_fim=ano_fim, apenas_ano=apenas_ano)
+        except Exception:  # noqa: BLE001 — nunca derruba o worker
+            logger.exception(
+                "Sincronização em segundo plano falhou para %s", tenant.slug
+            )
+        finally:
+            connections.close_all()
+
+    threading.Thread(
+        target=_executar,
+        name=f"sync-{tenant.slug}",
+        daemon=True,
+    ).start()
+    return True
 
 
 def sincronizar_emendas(tenant, ano):

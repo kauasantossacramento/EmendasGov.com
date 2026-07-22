@@ -7,7 +7,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from emendas.models import Emenda, Empenho, StatusRastreabilidade
-from integrations.services.federal import anos_pendentes, sincronizar_tenant
+from integrations.services.federal import (
+    anos_pendentes,
+    sincronizacao_em_andamento,
+    sincronizar_tenant,
+    sincronizar_tenant_em_segundo_plano,
+)
+from portal.models import ConfiguracaoPlataforma
 from tenants.models import Tenant
 
 from .forms import ConfiguracaoTenantForm, VinculoContratualForm
@@ -101,32 +107,58 @@ def sincronizacao(request, municipio_slug):
     nunca depende da API em tempo real. Aqui o gestor acompanha o que já
     foi carregado e dispara a atualização incremental quando quiser.
     """
+    config = ConfiguracaoPlataforma.carregar()
+
     if request.method == "POST":
         apenas_ano = request.POST.get("ano", "").strip()
-        try:
-            execucoes = sincronizar_tenant(
-                request.tenant,
-                apenas_ano=int(apenas_ano) if apenas_ano.isdigit() else None,
+        apenas_ano = int(apenas_ano) if apenas_ano.isdigit() else None
+
+        if not request.tenant.codigo_ibge:
+            messages.error(
+                request,
+                "Município sem código IBGE configurado — solicite ao "
+                "administrador da plataforma antes de sincronizar.",
             )
-        except ValueError as exc:  # ex.: código IBGE não configurado
-            messages.error(request, str(exc))
+        elif sincronizacao_em_andamento(request.tenant):
+            messages.warning(
+                request,
+                "Já existe uma sincronização em andamento — acompanhe o "
+                "histórico abaixo.",
+            )
+        elif config.sincronizacao_em_segundo_plano:
+            sincronizar_tenant_em_segundo_plano(request.tenant, apenas_ano=apenas_ano)
+            messages.info(
+                request,
+                "Sincronização iniciada em segundo plano. Você pode sair "
+                "desta página — o histórico abaixo mostra o andamento e a "
+                "tela se atualiza sozinha.",
+            )
         else:
-            if not execucoes:
-                messages.success(request, "Nada pendente — os dados locais já estão completos.")
+            try:
+                execucoes = sincronizar_tenant(request.tenant, apenas_ano=apenas_ano)
+            except ValueError as exc:
+                messages.error(request, str(exc))
             else:
-                sucesso = sum(1 for e in execucoes if e.status == "sucesso")
-                criadas = sum(e.emendas_criadas for e in execucoes)
-                atualizadas = sum(e.emendas_atualizadas for e in execucoes)
-                messages.success(
-                    request,
-                    f"Sincronização concluída: {sucesso} exercício(s) processado(s), "
-                    f"{criadas} emendas novas, {atualizadas} atualizadas.",
-                )
-                erros = [e for e in execucoes if e.status == "erro"]
-                for e in erros:
-                    messages.error(
-                        request, f"Exercício {e.ano}: {e.mensagem_erro or 'falha na API'}"
+                if not execucoes:
+                    messages.success(
+                        request, "Nada pendente — os dados locais já estão completos."
                     )
+                else:
+                    sucesso = sum(1 for e in execucoes if e.status == "sucesso")
+                    criadas = sum(e.emendas_criadas for e in execucoes)
+                    atualizadas = sum(e.emendas_atualizadas for e in execucoes)
+                    messages.success(
+                        request,
+                        f"Sincronização concluída: {sucesso} exercício(s) "
+                        f"processado(s), {criadas} emendas novas, "
+                        f"{atualizadas} atualizadas.",
+                    )
+                    for e in execucoes:
+                        if e.status == "erro":
+                            messages.error(
+                                request,
+                                f"Exercício {e.ano}: {e.mensagem_erro or 'falha na API'}",
+                            )
         return redirect("gestor:sincronizacao", municipio_slug=municipio_slug)
 
     from django.utils import timezone
@@ -139,6 +171,8 @@ def sincronizacao(request, municipio_slug):
         "anos_disponiveis": range(
             ano_atual, request.tenant.ano_inicio_sincronizacao - 1, -1
         ),
+        "em_andamento": sincronizacao_em_andamento(request.tenant),
+        "segundo_plano_ativo": config.sincronizacao_em_segundo_plano,
     })
 
 

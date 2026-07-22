@@ -75,6 +75,43 @@ contagens, erro), visível no painel do gestor em `/admin/<slug>/sincronizacao/`
 
 Agende diariamente (cron) para manter os dados atualizados. Requer o código
 IBGE configurado no tenant e a chave da API do Portal da Transparência.
+Para um único exercício: `--ano 2024`.
+
+### Sincronização em segundo plano
+
+Com **Sincronização em segundo plano** ativada (padrão) no `/superadmin/` →
+Configuração da plataforma, o clique do gestor em "Sincronizar" dispara a
+carga em uma thread do próprio servidor e responde na hora — o gestor pode
+sair da página e acompanhar pelo histórico (a tela se atualiza sozinha a
+cada 10 s). Uma trava impede duas cargas simultâneas do mesmo município;
+registros "Executando" órfãos (ex.: servidor reiniciado no meio) deixam de
+bloquear após 2 horas. Desative a opção para voltar ao modo síncrono.
+
+**Configuração no servidor (produção):**
+
+- Nenhum serviço extra é necessário — a thread roda dentro do worker web
+  (funciona com `runserver` e com Gunicorn/UWSGI). Atenção: se o worker
+  for reiniciado no meio de uma carga, ela é interrompida (a trava expira
+  sozinha e basta sincronizar de novo).
+- Mantenha o **cron diário** como rede de segurança — ele completa qualquer
+  carga interrompida, pois a sincronização é incremental:
+
+  ```cron
+  # /etc/cron.d/emendasgov — todo dia às 05:00
+  0 5 * * * app cd /caminho/do/projeto && python manage.py sincronizar_emendas >> /var/log/emendasgov-sync.log 2>&1
+  ```
+
+- Com Gunicorn, evite `--max-requests` muito baixo (reciclagem de worker
+  mata a thread da carga) e use PostgreSQL em produção — o SQLite trava
+  escritas concorrentes sob carga.
+
+### Limites da API da CGU
+
+As consultas já são espaçadas para respeitar as cotas oficiais
+(400 req/min de dia, 700 de madrugada). Ajustáveis via ambiente:
+`CGU_INTERVALO_REQUISICOES` (padrão `0.2` s entre requisições) e
+`CGU_MAX_PAGINAS` (padrão `600` páginas por execução — atingir o teto gera
+aviso de carga parcial; basta rodar de novo para continuar).
 
 ## Variáveis de ambiente
 

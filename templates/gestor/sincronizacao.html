@@ -1,7 +1,20 @@
 {% extends "gestor/base_gestor.html" %}
 {% load humanize %}
 
+{% block cabecalho_extra %}
+{% if em_andamento %}
+<script>setTimeout(function () { window.location.reload(); }, 10000);</script>
+{% endif %}
+{% endblock %}
+
 {% block gestor_conteudo %}
+{% if em_andamento %}
+<div class="aviso" style="display:flex; align-items:center; gap:12px;">
+  <span class="spinner" style="width:22px; height:22px; border-width:3px;"></span>
+  <span><strong>Sincronização em andamento…</strong> Você pode sair desta página —
+  esta tela se atualiza automaticamente a cada 10 segundos.</span>
+</div>
+{% endif %}
 <h2 class="titulo-secao">Sincronização com as APIs federais</h2>
 <p class="subtitulo-secao">
   Os dados importados ficam <strong>gravados no banco local</strong> — o portal público
@@ -39,8 +52,17 @@
       {% endfor %}
     </select>
   </div>
-  <button type="submit" class="botao verde">⟳ Sincronizar</button>
+  <button type="submit" class="botao verde" {% if em_andamento %}disabled style="opacity:.5; cursor:not-allowed;"{% endif %}>
+    ⟳ Sincronizar
+  </button>
   <small style="color:var(--texto-suave); flex-basis:100%;">
+    {% if segundo_plano_ativo %}
+      A carga roda <strong>em segundo plano</strong>: clique e pode sair da página —
+      o histórico mostra o andamento.
+    {% else %}
+      A página aguardará a carga terminar (modo em segundo plano desativado
+      pelo administrador da plataforma).
+    {% endif %}
     Sincronizar um único exercício evita cargas longas e respeita os limites da
     API da CGU (400 requisições/min) — as consultas já são espaçadas
     automaticamente. A sincronização completa também roda todos os dias.
