@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block titulo %}Administração do desenvolvedor — EmendasGov.com{% endblock %}
 
+{% block cabecalho_extra %}
+{% if carga_em_andamento %}
+<script>setTimeout(function () { window.location.reload(); }, 8000);</script>
+{% endif %}
+{% endblock %}
+
 {% block cabecalho %}
 <header class="topo">
   <div class="container">
@@ -56,6 +62,15 @@
   </div>
   {% endif %}
 
+  {% if carga_em_andamento %}
+  <div class="aviso" style="display:flex; align-items:center; gap:12px;">
+    <span class="spinner" style="width:22px; height:22px; border-width:3px;"></span>
+    <span><strong>Carga nacional em andamento…</strong> Esta tela se atualiza
+    automaticamente a cada 8 segundos — acompanhe os registros crescendo na
+    tabela abaixo.</span>
+  </div>
+  {% endif %}
+
   <h3 style="margin: 26px 0 10px;">Base nacional de emendas</h3>
   <p class="subtitulo-secao" style="font-size:.88rem;">
     Uma carga por exercício abastece todos os municípios: ao cadastrar uma
@@ -78,9 +93,21 @@
             <td class="numero">{{ linha.registros }}</td>
             <td>{{ linha.ultima.concluido_em|date:"d/m/Y H:i"|default:"—" }}</td>
             <td>
-              {% if linha.ultima.status == "sucesso" %}<span class="selo conforme">Sucesso</span>
-              {% elif linha.ultima.status == "executando" %}<span class="selo pendente">Executando</span>
-              {% elif linha.ultima.status == "erro" %}<span class="selo cancelado">Erro</span>
+              {% if linha.executando %}
+                <span class="selo pendente" style="display:inline-flex; align-items:center; gap:6px;">
+                  <span class="spinner" style="width:11px; height:11px; border-width:2px;"></span>
+                  Executando — {{ linha.ultima.registros_novos|add:linha.ultima.registros_atualizados }} registros
+                </span>
+              {% elif linha.interrompida %}
+                <span class="selo cancelado" title="A carga foi interrompida (ex.: servidor reiniciado). Clique em Carregar para retomar — nada é duplicado.">Interrompida</span>
+              {% elif linha.ultima.status == "sucesso" %}<span class="selo conforme">Sucesso</span>
+              {% elif linha.ultima.status == "erro" %}
+                <span class="selo cancelado" title="{{ linha.ultima.mensagem_erro|truncatechars:300 }}">Erro</span>
+                {% if linha.ultima.mensagem_erro %}
+                  <div style="color:var(--vermelho); font-size:.74rem; max-width:280px; margin-top:4px;">
+                    {{ linha.ultima.mensagem_erro|truncatechars:90 }}
+                  </div>
+                {% endif %}
               {% else %}<span class="selo pendente">Nunca carregada</span>{% endif %}
             </td>
             <td style="text-align:center;">
@@ -88,8 +115,9 @@
                 {% csrf_token %}
                 <input type="hidden" name="ano_nacional" value="{{ linha.ano }}">
                 <button type="submit" class="botao pequeno secundario"
-                        {% if linha.ultima.status == "executando" %}disabled{% endif %}>
-                  ⟳ Carregar {{ linha.ano }}
+                        {% if linha.executando %}disabled style="opacity:.5; cursor:not-allowed;"{% endif %}>
+                  {% if linha.interrompida or linha.ultima.status == "erro" %}⟳ Retomar {{ linha.ano }}
+                  {% else %}⟳ Carregar {{ linha.ano }}{% endif %}
                 </button>
               </form>
             </td>

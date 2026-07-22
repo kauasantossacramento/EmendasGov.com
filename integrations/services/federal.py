@@ -15,11 +15,17 @@ from decimal import Decimal, InvalidOperation
 
 import requests
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from emendas.models import Emenda
 
 logger = logging.getLogger(__name__)
+
+# Uma escrita nacional por vez: cargas simultâneas (ex.: 2025 e 2026
+# disparadas juntas) serializam os lotes em vez de disputar o lock do
+# SQLite e estourar "database is locked".
+_TRAVA_ESCRITA_NACIONAL = threading.Lock()
 
 TIMEOUT = 30
 
@@ -284,31 +290,51 @@ def sincronizar_nacional(ano, forcar=False):
     log = CargaNacional.objects.create(ano=ano)
     client = PortalTransparenciaClient()
     novos = atualizados = 0
+
+    def gravar_lote(lote):
+        """Grava um lote em transação única (lock curto e escrita rápida)."""
+        nonlocal novos, atualizados
+        with _TRAVA_ESCRITA_NACIONAL, transaction.atomic():
+            for registro in lote:
+                numero = registro.get("codigoEmenda") or registro.get("numeroEmenda")
+                if not numero:
+                    continue
+                localidade = registro.get("localidadeDoGasto", "") or ""
+                _, criado = EmendaNacional.objects.update_or_create(
+                    numero=str(numero),
+                    ano=int(registro.get("ano") or ano),
+                    defaults={
+                        "autor": registro.get("autor", "") or "",
+                        "funcao": registro.get("funcao", "") or "",
+                        "localidade": localidade[:255],
+                        "localidade_normalizada": _normalizar(localidade)[:255],
+                        "valor_total": _decimal(registro.get("valorEmpenhado")),
+                        "dados": registro,
+                    },
+                )
+                if criado:
+                    novos += 1
+                else:
+                    atualizados += 1
+        # Progresso ao vivo: o painel /dev/ mostra as contagens crescendo.
+        CargaNacional.objects.filter(pk=log.pk).update(
+            registros_novos=novos, registros_atualizados=atualizados
+        )
+
     try:
+        lote = []
         for registro in client.emendas_do_ano(ano):
-            numero = registro.get("codigoEmenda") or registro.get("numeroEmenda")
-            if not numero:
-                continue
-            localidade = registro.get("localidadeDoGasto", "") or ""
-            _, criado = EmendaNacional.objects.update_or_create(
-                numero=str(numero),
-                ano=int(registro.get("ano") or ano),
-                defaults={
-                    "autor": registro.get("autor", "") or "",
-                    "funcao": registro.get("funcao", "") or "",
-                    "localidade": localidade[:255],
-                    "localidade_normalizada": _normalizar(localidade)[:255],
-                    "valor_total": _decimal(registro.get("valorEmpenhado")),
-                    "dados": registro,
-                },
-            )
-            if criado:
-                novos += 1
-            else:
-                atualizados += 1
+            lote.append(registro)
+            if len(lote) >= 200:
+                gravar_lote(lote)
+                lote = []
+        if lote:
+            gravar_lote(lote)
     except Exception as exc:  # noqa: BLE001
         log.status = StatusSincronizacao.ERRO
         log.mensagem_erro = str(exc)[:2000]
+        log.registros_novos = novos
+        log.registros_atualizados = atualizados
         log.concluido_em = timezone.now()
         log.save()
         raise
@@ -336,25 +362,27 @@ def materializar_emendas(tenant, ano):
     registros = EmendaNacional.objects.filter(
         ano=ano, localidade_normalizada__contains=alvo
     )
-    for registro in registros:
-        _, criado = Emenda.objects.update_or_create(
-            tenant=tenant,
-            numero=registro.numero,
-            ano=registro.ano,
-            defaults={
-                "parlamentar": registro.autor or "Não informado",
-                "valor_total": registro.valor_total,
-                "area_aplicacao": _area_por_funcao(registro.funcao),
-                "objeto": registro.localidade,
-                "codigo_transferegov": registro.numero,
-                "fonte_importacao": "cgu",
-                "importado_em": timezone.now(),
-            },
-        )
-        if criado:
-            criadas += 1
-        else:
-            atualizadas += 1
+    # Transação única: materialização rápida com lock curto no SQLite.
+    with transaction.atomic():
+        for registro in registros:
+            _, criado = Emenda.objects.update_or_create(
+                tenant=tenant,
+                numero=registro.numero,
+                ano=registro.ano,
+                defaults={
+                    "parlamentar": registro.autor or "Não informado",
+                    "valor_total": registro.valor_total,
+                    "area_aplicacao": _area_por_funcao(registro.funcao),
+                    "objeto": registro.localidade,
+                    "codigo_transferegov": registro.numero,
+                    "fonte_importacao": "cgu",
+                    "importado_em": timezone.now(),
+                },
+            )
+            if criado:
+                criadas += 1
+            else:
+                atualizadas += 1
     return criadas, atualizadas
 
 

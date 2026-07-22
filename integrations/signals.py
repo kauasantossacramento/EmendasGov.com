@@ -1,12 +1,27 @@
-"""Sinais: novo município nasce com os dados da base nacional."""
+"""Sinais: novo município nasce com os dados da base nacional +
+ajustes de concorrência do SQLite."""
 import logging
 
+from django.db.backends.signals import connection_created
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from tenants.models import Tenant
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(connection_created, dispatch_uid="configurar_sqlite")
+def configurar_sqlite(sender, connection, **kwargs):
+    """
+    SQLite: modo WAL permite leituras durante as gravações das cargas em
+    segundo plano, e o busy_timeout faz escritas concorrentes esperarem o
+    lock em vez de estourar "database is locked".
+    """
+    if connection.vendor == "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA busy_timeout=30000;")
 
 
 @receiver(post_save, sender=Tenant, dispatch_uid="materializar_novo_tenant")

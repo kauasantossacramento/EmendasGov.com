@@ -118,7 +118,9 @@ def painel_desenvolvedor(request):
         ).pendentes_de_vinculo().count()
 
     ano_atual = tz.localdate().year
+    limite_orfa = tz.now() - tz.timedelta(hours=2)
     resumo_nacional = []
+    alguma_executando = False
     contagens = dict(
         EmendaNacional.objects.values_list("ano")
         .annotate(qtd=Count("id"))
@@ -128,15 +130,29 @@ def painel_desenvolvedor(request):
         ultima = (
             CargaNacional.objects.filter(ano=ano).order_by("-iniciado_em").first()
         )
+        executando = bool(
+            ultima
+            and ultima.status == "executando"
+            and ultima.iniciado_em >= limite_orfa
+        )
+        interrompida = bool(
+            ultima
+            and ultima.status == "executando"
+            and ultima.iniciado_em < limite_orfa
+        )
+        alguma_executando = alguma_executando or executando
         resumo_nacional.append({
             "ano": ano,
             "registros": contagens.get(ano, 0),
             "ultima": ultima,
+            "executando": executando,
+            "interrompida": interrompida,
         })
 
     return render(request, "gestor/dev.html", {
         "tenants": tenants,
         "resumo_nacional": resumo_nacional,
+        "carga_em_andamento": alguma_executando,
         "total_nacional": EmendaNacional.objects.count(),
         "total_municipios": len(tenants),
         "total_emendas": Emenda.objects.count(),

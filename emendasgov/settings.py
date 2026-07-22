@@ -100,6 +100,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        # Espera até 30s pelo lock em vez de falhar com "database is locked"
+        # (threads de sincronização em segundo plano + requisições web).
+        "OPTIONS": {"timeout": 30},
     }
 }
 
