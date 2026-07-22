@@ -98,7 +98,7 @@
 </div>
 {% endif %}
 
-{{ graficos_json|json_script:"dados-graficos" }}
+{{ graficos|json_script:"dados-graficos" }}
 {% endblock %}
 
 {% block scripts %}
@@ -107,7 +107,17 @@
 <script>
 (function () {
   const el = document.getElementById("dados-graficos");
-  if (!el || typeof Chart === "undefined") return;
+  if (!el) return;
+  if (typeof Chart === "undefined") {
+    // CDN indisponível: troca os canvases por uma mensagem acolhedora
+    document.querySelectorAll(".grafico").forEach(function (caixa) {
+      caixa.innerHTML =
+        '<p style="color:var(--texto-suave); font-size:.9rem; padding:20px 0;">' +
+        "Não foi possível carregar o gráfico agora. Verifique sua conexão e " +
+        "recarregue a página — os dados continuam disponíveis na consulta de emendas.</p>";
+    });
+    return;
+  }
   const dados = JSON.parse(el.textContent);
   const estilo = getComputedStyle(document.documentElement);
   const azul = estilo.getPropertyValue("--tenant-primaria").trim() || "#1351B4";

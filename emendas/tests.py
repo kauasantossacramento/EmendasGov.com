@@ -63,6 +63,20 @@ class DrillDownTests(TestCase):
         resposta = self.client.get(reverse("portal:dashboard", args=["alfa"]))
         self.assertContains(resposta, "Total de emendas recebidas")
 
+    def test_dashboard_embute_json_dos_graficos_como_objeto(self):
+        """Dupla codificação JSON deixaria os gráficos vazios no navegador."""
+        import json as json_mod
+
+        resposta = self.client.get(reverse("portal:dashboard", args=["alfa"]))
+        html = resposta.content.decode()
+        inicio = html.index('id="dados-graficos"')
+        corpo = html[html.index(">", inicio) + 1:html.index("</script>", inicio)]
+        dados = json_mod.loads(corpo)
+        self.assertIsInstance(dados, dict)  # objeto, não string re-encodada
+        for chave in ("mensal", "ranking", "areas", "sankey"):
+            self.assertIn(chave, dados)
+        self.assertIn("labels", dados["ranking"])
+
     def test_nivel2_mostra_totais_e_empenhos(self):
         resposta = self.client.get(
             reverse("portal:emenda_detalhe", args=["alfa", self.e1.pk])

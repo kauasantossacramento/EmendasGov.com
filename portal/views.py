@@ -234,7 +234,10 @@ def dashboard(request, municipio_slug):
         "kpi_volume_total": volume_total,
         "kpi_taxa_execucao": taxa_execucao,
         "kpi_area_top": area_top,
-        "graficos_json": json.dumps(graficos),
+        # Dict puro: o filtro json_script do template faz a serialização.
+        # (json.dumps aqui causaria dupla codificação — o JS receberia uma
+        # string em vez de objeto e os gráficos ficariam vazios.)
+        "graficos": graficos,
         "ranking_completo": ranking,
     })
 
