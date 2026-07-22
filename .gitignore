@@ -7,3 +7,5 @@ staticfiles/
 *.log
 .venv/
 venv/
+db.sqlite3-shm
+db.sqlite3-wal
