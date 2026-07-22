@@ -7,6 +7,8 @@ O ciclo de importação:
   3. PNCP                → execução do recurso (ContratoPNCP)
 """
 import logging
+import time
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 import requests
@@ -19,16 +21,74 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT = 30
 
+ZERO = Decimal("0.00")
+
 
 def _decimal(valor):
+    """
+    Converte valores da API em Decimal com segurança.
+
+    A CGU devolve valores monetários como texto no formato brasileiro
+    ("1.234.567,89") — sem este tratamento, tudo viraria 0,00.
+    Aceita também números e strings com ponto decimal ("1234567.89").
+    """
+    if valor is None:
+        return ZERO
+    if isinstance(valor, (int, float, Decimal)):
+        try:
+            return Decimal(str(valor)).quantize(Decimal("0.01"))
+        except InvalidOperation:
+            return ZERO
+    texto = str(valor).replace("R$", "").strip()
+    if not texto:
+        return ZERO
+    if "," in texto:
+        # Formato brasileiro: remove separador de milhar e troca a vírgula
+        texto = texto.replace(".", "").replace(",", ".")
     try:
-        return Decimal(str(valor or "0")).quantize(Decimal("0.01"))
-    except (InvalidOperation, ValueError):
-        return Decimal("0.00")
+        return Decimal(texto).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return ZERO
+
+
+def _normalizar(texto):
+    """Remove acentos e caixa para comparação tolerante de nomes."""
+    return (
+        unicodedata.normalize("NFKD", str(texto or ""))
+        .encode("ascii", "ignore")
+        .decode()
+        .upper()
+        .strip()
+    )
+
+
+def _refere_ao_municipio(registro, tenant):
+    """
+    O endpoint /api-de-dados/emendas da CGU não filtra por município de
+    forma confiável — pode devolver emendas do país inteiro. Validamos
+    cada registro pela localidade do gasto (e campos afins) antes de
+    gravar, para não poluir o portal com emendas de outras cidades.
+    """
+    campos = " ".join(
+        str(registro.get(campo, ""))
+        for campo in ("localidadeDoGasto", "municipio", "nomeMunicipio")
+    )
+    codigo = str(registro.get("codigoIbgeMunicipio", "") or registro.get("codigoMunicipio", ""))
+    if tenant.codigo_ibge and codigo and codigo.strip() == tenant.codigo_ibge.strip():
+        return True
+    alvo = _normalizar(tenant.nome)
+    return bool(alvo) and alvo in _normalizar(campos)
 
 
 class PortalTransparenciaClient:
-    """Consulta emendas parlamentares na API do Portal da Transparência (CGU)."""
+    """
+    Consulta emendas parlamentares na API do Portal da Transparência (CGU).
+
+    Respeita os limites oficiais da API (400 req/min em horário comercial,
+    700 req/min de madrugada): intervalo mínimo entre requisições
+    (CGU_INTERVALO_REQUISICOES) e teto de páginas por execução
+    (CGU_MAX_PAGINAS), evitando a suspensão do token.
+    """
 
     def __init__(self):
         self.base = settings.PORTAL_TRANSPARENCIA_API_BASE.rstrip("/")
@@ -38,12 +98,9 @@ class PortalTransparenciaClient:
         }
 
     def emendas_por_municipio(self, codigo_ibge, ano):
-        """
-        GET /api-de-dados/emendas — pagina automaticamente até esgotar
-        os resultados do município/ano informados.
-        """
+        """GET /api-de-dados/emendas — pagina com throttle até esgotar o ano."""
         pagina = 1
-        while True:
+        while pagina <= settings.CGU_MAX_PAGINAS:
             resp = requests.get(
                 f"{self.base}/api-de-dados/emendas",
                 params={
@@ -57,9 +114,15 @@ class PortalTransparenciaClient:
             resp.raise_for_status()
             lote = resp.json()
             if not lote:
-                break
+                return
             yield from lote
             pagina += 1
+            time.sleep(settings.CGU_INTERVALO_REQUISICOES)
+        logger.warning(
+            "CGU: teto de %s páginas atingido para o ano %s — sincronização "
+            "parcial; rode novamente para continuar.",
+            settings.CGU_MAX_PAGINAS, ano,
+        )
 
 
 class TransferegovClient:
@@ -123,18 +186,21 @@ def anos_pendentes(tenant, ano_fim=None):
     ]
 
 
-def sincronizar_tenant(tenant, ano_fim=None):
+def sincronizar_tenant(tenant, ano_fim=None, apenas_ano=None):
     """
     Sincroniza o tenant de forma incremental, registrando cada execução.
 
     Primeira execução: carga histórica completa (ano_inicio_sincronizacao
     até hoje). Execuções seguintes: apenas exercícios pendentes + o ano
-    corrente. Retorna a lista de registros SincronizacaoEmendas gerados.
+    corrente. Com `apenas_ano`, sincroniza um único exercício — útil para
+    cargas manuais controladas, evitando o loop completo e respeitando os
+    limites da API. Retorna os registros SincronizacaoEmendas gerados.
     """
     from integrations.models import SincronizacaoEmendas, StatusSincronizacao
 
+    anos = [int(apenas_ano)] if apenas_ano else anos_pendentes(tenant, ano_fim)
     execucoes = []
-    for ano in anos_pendentes(tenant, ano_fim):
+    for ano in anos:
         log = SincronizacaoEmendas.objects.create(tenant=tenant, ano=ano)
         try:
             criadas, atualizadas = sincronizar_emendas(tenant, ano)
@@ -164,10 +230,13 @@ def sincronizar_emendas(tenant, ano):
         )
 
     client = PortalTransparenciaClient()
-    criadas = atualizadas = 0
+    criadas = atualizadas = ignoradas = 0
     for registro in client.emendas_por_municipio(tenant.codigo_ibge, ano):
         numero = registro.get("codigoEmenda") or registro.get("numeroEmenda")
         if not numero:
+            continue
+        if not _refere_ao_municipio(registro, tenant):
+            ignoradas += 1
             continue
         _, criado = Emenda.objects.update_or_create(
             tenant=tenant,
@@ -188,7 +257,7 @@ def sincronizar_emendas(tenant, ano):
         else:
             atualizadas += 1
     logger.info(
-        "Sync %s/%s: %s criadas, %s atualizadas",
-        tenant.slug, ano, criadas, atualizadas,
+        "Sync %s/%s: %s criadas, %s atualizadas, %s de outros municípios ignoradas",
+        tenant.slug, ano, criadas, atualizadas, ignoradas,
     )
     return criadas, atualizadas

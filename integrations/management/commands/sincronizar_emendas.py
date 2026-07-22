@@ -21,6 +21,10 @@ class Command(BaseCommand):
             "--ate-ano", type=int, default=None,
             help="Último exercício a sincronizar (padrão: ano corrente)",
         )
+        parser.add_argument(
+            "--ano", type=int, default=None,
+            help="Sincroniza APENAS este exercício (ignora a fila de pendentes)",
+        )
 
     def handle(self, *args, **options):
         tenants = Tenant.objects.filter(ativo=True)
@@ -30,7 +34,9 @@ class Command(BaseCommand):
                 raise CommandError(f"Tenant '{options['tenant']}' não encontrado.")
 
         for tenant in tenants:
-            execucoes = sincronizar_tenant(tenant, ano_fim=options["ate_ano"])
+            execucoes = sincronizar_tenant(
+                tenant, ano_fim=options["ate_ano"], apenas_ano=options["ano"]
+            )
             if not execucoes:
                 self.stdout.write(f"{tenant.slug}: nada pendente.")
                 continue

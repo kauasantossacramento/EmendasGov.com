@@ -69,6 +69,54 @@ def landing(request):
 
 
 # ---------------------------------------------------------------------------
+# Login único da plataforma (gestores municipais e administradores)
+# ---------------------------------------------------------------------------
+
+def login_global(request):
+    """
+    Tela de login única. Após autenticar, direciona pelo perfil:
+      - superusuário (desenvolvedor/operação) → /superadmin/
+      - gestor municipal → painel do município ao qual está vinculado
+      - usuário sem vínculo → sessão encerrada + orientação
+
+    Um `?next=` local tem prioridade; as telas de destino revalidam a
+    permissão por conta própria (requer_gestor / admin do Django).
+    """
+    from django.contrib.auth import login as auth_login
+    from django.contrib.auth import logout as auth_logout
+    from django.contrib.auth.forms import AuthenticationForm
+
+    config = ConfiguracaoPlataforma.carregar()
+    form = AuthenticationForm(request, data=request.POST or None)
+    erro_vinculo = None
+
+    if request.method == "POST" and form.is_valid():
+        usuario = form.get_user()
+        auth_login(request, usuario)
+
+        destino = request.GET.get("next", "")
+        if destino.startswith("/") and not destino.startswith("//"):
+            return redirect(destino)
+        if usuario.is_superuser:
+            return redirect("/superadmin/")
+        gestoria = usuario.gestorias.select_related("tenant").first()
+        if gestoria:
+            return redirect("gestor:painel", municipio_slug=gestoria.tenant.slug)
+        # Autenticou, mas não gerencia nenhum município: não deixa sessão ativa.
+        auth_logout(request)
+        erro_vinculo = (
+            "Seu usuário ainda não está vinculado a nenhum município. "
+            "Solicite o vínculo ao administrador da plataforma."
+        )
+
+    return render(request, "plataforma/login.html", {
+        "form": form,
+        "erro_vinculo": erro_vinculo,
+        "imagem_fundo": config.imagem_fundo_login,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Gateway de segurança (reCAPTCHA)
 # ---------------------------------------------------------------------------
 

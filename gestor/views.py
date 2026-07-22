@@ -1,9 +1,7 @@
 from functools import wraps
 
 from django.contrib import messages
-from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
-from django.contrib.auth.forms import AuthenticationForm
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -33,8 +31,7 @@ def requer_gestor(view_func):
             if request.user.is_authenticated:
                 raise Http404("Você não tem acesso ao painel deste município.")
             return redirect(
-                f"{reverse('gestor:login', args=[municipio_slug])}"
-                f"?next={request.get_full_path()}"
+                f"{reverse('login_global')}?next={request.get_full_path()}"
             )
         request.tenant = tenant
         return view_func(request, municipio_slug, *args, **kwargs)
@@ -43,24 +40,17 @@ def requer_gestor(view_func):
 
 
 def login_view(request, municipio_slug):
-    tenant = get_object_or_404(Tenant, slug=municipio_slug)
-    form = AuthenticationForm(request, data=request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        usuario = form.get_user()
-        if not _pode_gerir(usuario, tenant):
-            form.add_error(None, "Este usuário não é gestor deste município.")
-        else:
-            auth_login(request, usuario)
-            destino = request.GET.get("next", "")
-            if not destino.startswith("/"):
-                destino = reverse("gestor:painel", args=[municipio_slug])
-            return redirect(destino)
-    return render(request, "gestor/login.html", {"form": form, "tenant_login": tenant})
+    """Compatibilidade: o login agora é único, na tela global da plataforma."""
+    get_object_or_404(Tenant, slug=municipio_slug)
+    destino = request.GET.get("next", "")
+    if not destino.startswith("/") or destino.startswith("//"):
+        destino = reverse("gestor:painel", args=[municipio_slug])
+    return redirect(f"{reverse('login_global')}?next={destino}")
 
 
 def logout_view(request, municipio_slug):
     auth_logout(request)
-    return redirect("gestor:login", municipio_slug=municipio_slug)
+    return redirect("login_global")
 
 
 @requer_gestor
@@ -112,8 +102,12 @@ def sincronizacao(request, municipio_slug):
     foi carregado e dispara a atualização incremental quando quiser.
     """
     if request.method == "POST":
+        apenas_ano = request.POST.get("ano", "").strip()
         try:
-            execucoes = sincronizar_tenant(request.tenant)
+            execucoes = sincronizar_tenant(
+                request.tenant,
+                apenas_ano=int(apenas_ano) if apenas_ano.isdigit() else None,
+            )
         except ValueError as exc:  # ex.: código IBGE não configurado
             messages.error(request, str(exc))
         else:
@@ -135,10 +129,16 @@ def sincronizacao(request, municipio_slug):
                     )
         return redirect("gestor:sincronizacao", municipio_slug=municipio_slug)
 
+    from django.utils import timezone
+
+    ano_atual = timezone.localdate().year
     return render(request, "gestor/sincronizacao.html", {
         "historico": request.tenant.sincronizacoes.select_related("tenant")[:50],
         "pendentes": anos_pendentes(request.tenant),
         "total_emendas": Emenda.objects.do_tenant(municipio_slug).count(),
+        "anos_disponiveis": range(
+            ano_atual, request.tenant.ano_inicio_sincronizacao - 1, -1
+        ),
     })
 
 

@@ -17,6 +17,7 @@ from portal import views as portal_views
 
 urlpatterns = [
     path("", portal_views.landing, name="landing"),
+    path("login/", portal_views.login_global, name="login_global"),
     path("superadmin/", admin.site.urls),
     path("admin/", include("gestor.urls")),
     path("", include("portal.urls")),

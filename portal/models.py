@@ -12,6 +12,16 @@ class ConfiguracaoPlataforma(models.Model):
         default=True,
         help_text="Desative para ocultar completamente a faixa de estatísticas.",
     )
+    imagem_fundo_login = models.ImageField(
+        "Foto de fundo da tela de login",
+        upload_to="login/",
+        blank=True,
+        null=True,
+        help_text=(
+            "Imagem exibida ao fundo da tela de login única (gestores e "
+            "administradores). Sem imagem, usa o gradiente institucional."
+        ),
+    )
     usar_dados_reais = models.BooleanField(
         "Usar dados reais do banco",
         default=False,

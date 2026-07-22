@@ -137,7 +137,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "/login/"
 
 # ---------------------------------------------------------------------------
 # Integrações externas
@@ -161,6 +161,10 @@ PORTAL_TRANSPARENCIA_API_BASE = os.environ.get(
     "PORTAL_TRANSPARENCIA_API_BASE", "https://api.portaldatransparencia.gov.br"
 )
 PORTAL_TRANSPARENCIA_API_KEY = os.environ.get("PORTAL_TRANSPARENCIA_API_KEY", "")
+# Limites oficiais da API da CGU: 400 req/min (dia) / 700 req/min (madrugada).
+# Intervalo entre requisições (segundos) e teto de páginas por execução:
+CGU_INTERVALO_REQUISICOES = float(os.environ.get("CGU_INTERVALO_REQUISICOES", "0.2"))
+CGU_MAX_PAGINAS = int(os.environ.get("CGU_MAX_PAGINAS", "600"))
 PNCP_API_BASE = os.environ.get("PNCP_API_BASE", "https://pncp.gov.br/api/consulta")
 
 # Prazo (dias) para alerta de empenho sem vínculo PNCP

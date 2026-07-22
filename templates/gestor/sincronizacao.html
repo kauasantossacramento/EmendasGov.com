@@ -27,11 +27,23 @@
   </div>
 </div>
 
-<form method="post" data-spinner style="margin-bottom: 26px;">
+<form method="post" data-spinner class="cartao"
+      style="display:flex; gap:14px; align-items:end; flex-wrap:wrap; margin-bottom: 26px;">
   {% csrf_token %}
-  <button type="submit" class="botao verde">⟳ Sincronizar agora</button>
-  <small style="color:var(--texto-suave); margin-left: 12px;">
-    Também é executada automaticamente todos os dias.
+  <div class="campo">
+    <label for="sync-ano">Exercício a sincronizar</label>
+    <select id="sync-ano" name="ano">
+      <option value="">Todos os pendentes ({{ pendentes|length }})</option>
+      {% for a in anos_disponiveis %}
+        <option value="{{ a }}">Apenas {{ a }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="botao verde">⟳ Sincronizar</button>
+  <small style="color:var(--texto-suave); flex-basis:100%;">
+    Sincronizar um único exercício evita cargas longas e respeita os limites da
+    API da CGU (400 requisições/min) — as consultas já são espaçadas
+    automaticamente. A sincronização completa também roda todos os dias.
   </small>
 </form>
 

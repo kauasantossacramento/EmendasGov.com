@@ -12,15 +12,30 @@ from .services import federal
 ANO_ATUAL = timezone.localdate().year
 
 
-def resposta_api(numero, autor, valor):
+def resposta_api(numero, autor, valor, localidade="Município Alfa"):
     return {
         "codigoEmenda": numero,
         "ano": ANO_ATUAL,
         "autor": autor,
         "valorEmpenhado": valor,
         "funcao": "Saúde",
-        "localidadeDoGasto": "Município Alfa",
+        "localidadeDoGasto": localidade,
     }
+
+
+class ConversaoValoresTests(TestCase):
+    def test_formato_brasileiro_da_cgu(self):
+        """A CGU devolve '1.234.567,89' — não pode virar 0,00."""
+        self.assertEqual(str(federal._decimal("1.234.567,89")), "1234567.89")
+        self.assertEqual(str(federal._decimal("1.503.000,00")), "1503000.00")
+        self.assertEqual(str(federal._decimal("R$ 500,50")), "500.50")
+
+    def test_formatos_numericos_e_invalidos(self):
+        self.assertEqual(str(federal._decimal("1234567.89")), "1234567.89")
+        self.assertEqual(str(federal._decimal(1000)), "1000.00")
+        self.assertEqual(str(federal._decimal(None)), "0.00")
+        self.assertEqual(str(federal._decimal("abc")), "0.00")
+        self.assertEqual(str(federal._decimal("")), "0.00")
 
 
 class SeloAtualizacaoTests(TestCase):
@@ -80,6 +95,36 @@ class SincronizacaoIncrementalTests(TestCase):
         self.assertEqual(
             federal.anos_pendentes(self.tenant), [ANO_ATUAL - 2, ANO_ATUAL]
         )
+
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    def test_descarta_emendas_de_outros_municipios(self, api):
+        """A API da CGU pode devolver o Brasil inteiro — só gravamos o tenant."""
+        api.return_value = iter([
+            resposta_api("9001", "Dep. Alfa", "1.000,00"),
+            resposta_api("8001", "Dep. Outro", "2.000,00", localidade="Outra Cidade - XX"),
+            resposta_api("8002", "Dep. Outro", "3.000,00", localidade="Nacional"),
+        ])
+        criadas, _ = federal.sincronizar_emendas(self.tenant, ANO_ATUAL)
+        self.assertEqual(criadas, 1)
+        self.assertEqual(Emenda.objects.count(), 1)
+        self.assertEqual(Emenda.objects.get().numero, "9001")
+
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    def test_valores_brasileiros_gravados_corretamente(self, api):
+        api.return_value = iter([resposta_api("9001", "Dep. Alfa", "1.503.000,00")])
+        federal.sincronizar_emendas(self.tenant, ANO_ATUAL)
+        self.assertEqual(str(Emenda.objects.get().valor_total), "1503000.00")
+
+    @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
+    def test_sincronizar_apenas_um_ano(self, api):
+        api.side_effect = lambda ibge, ano: iter(
+            [resposta_api(f"{ano}01", "Dep. Alfa", "1.000,00")]
+        )
+        execucoes = federal.sincronizar_tenant(
+            self.tenant, apenas_ano=ANO_ATUAL - 1
+        )
+        self.assertEqual([e.ano for e in execucoes], [ANO_ATUAL - 1])
+        self.assertEqual(api.call_count, 1)
 
     @mock.patch.object(federal.PortalTransparenciaClient, "emendas_por_municipio")
     def test_sincronizar_grava_no_banco_sem_duplicar(self, api):

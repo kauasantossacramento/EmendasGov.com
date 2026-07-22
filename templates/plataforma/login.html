@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar — EmendasGov.com{% endblock %}
+
+{% block cabecalho_extra %}
+<style>
+  body { overflow: hidden; }
+  .palco-login {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background:
+      linear-gradient(135deg, rgba(12, 50, 111, .88), rgba(19, 81, 180, .82))
+      {% if imagem_fundo %}, url("{{ imagem_fundo.url }}") center / cover no-repeat{% endif %};
+    background-color: var(--azul-escuro);
+  }
+  .cartao-login {
+    width: min(400px, 100%); background: var(--branco); border-radius: 18px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .35); padding: 34px 32px;
+    animation: entrar-suave .45s ease both;
+  }
+  @keyframes entrar-suave {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .cartao-login { animation: none; } }
+  .cartao-login .marca { font-size: 1.25rem; font-weight: 800; color: var(--azul-escuro); }
+  .cartao-login .marca span { color: #B78D00; }
+  .cartao-login .apoio { color: var(--texto-suave); font-size: .85rem; margin: 4px 0 24px; }
+  .cartao-login .voltar { display: inline-block; margin-top: 18px; font-size: .82rem; }
+  .rodape, .topo, .faixa-marca { display: none; }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="palco-login">
+  <div class="cartao-login">
+    <div class="marca">Emendas<span>Gov</span>.com</div>
+    <p class="apoio">Acesso restrito a gestores municipais e administradores da plataforma.</p>
+
+    {% if form.non_field_errors %}
+      <div class="aviso critico">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+    {% if erro_vinculo %}
+      <div class="aviso critico">{{ erro_vinculo }}</div>
+    {% endif %}
+
+    <form method="post" data-spinner style="display:grid; gap:14px;">
+      {% csrf_token %}
+      <div class="campo">
+        <label for="id_username">Usuário</label>
+        <input type="text" name="username" id="id_username" autocomplete="username" autofocus required>
+      </div>
+      <div class="campo">
+        <label for="id_password">Senha</label>
+        <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="botao" style="width:100%; justify-content:center;">Entrar</button>
+    </form>
+
+    <a class="voltar" href="/">← Voltar ao portal público</a>
+  </div>
+</div>
+{% endblock %}
