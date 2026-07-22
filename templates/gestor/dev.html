@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block titulo %}Administração do desenvolvedor — EmendasGov.com{% endblock %}
+
+{% block cabecalho %}
+<header class="topo">
+  <div class="container">
+    <div class="titulo">
+      <h1>Emendas<span style="color:var(--amarelo);">Gov</span>.com · Desenvolvedor</h1>
+      <p>Administração da plataforma — todos os municípios</p>
+    </div>
+    <nav>
+      <a href="/superadmin/tenants/tenant/add/">+ Novo município</a>
+      <a href="/superadmin/tenants/gestormunicipal/">Gestores</a>
+      <a href="/superadmin/portal/configuracaoplataforma/1/change/">Config. da plataforma</a>
+      <a href="/superadmin/">Django admin ↗</a>
+      <a href="/">Ver site</a>
+    </nav>
+  </div>
+</header>
+<div class="faixa-marca"></div>
+{% endblock %}
+
+{% block conteudo %}
+<div class="container">
+  <h2 class="titulo-secao">Visão geral da plataforma</h2>
+  <p class="subtitulo-secao">
+    Como superusuário, você acessa o painel de qualquer município — vendo
+    exatamente o que o gestor vê — e todos os cadastros do sistema.
+  </p>
+
+  <div class="grade-kpi">
+    <div class="cartao kpi">
+      <div class="rotulo">Municípios cadastrados</div>
+      <div class="valor">{{ total_municipios }}</div>
+    </div>
+    <div class="cartao kpi kpi-verde">
+      <div class="rotulo">Emendas no banco</div>
+      <div class="valor">{{ total_emendas }}</div>
+    </div>
+    <div class="cartao kpi kpi-amarelo">
+      <div class="rotulo">Gestores vinculados</div>
+      <div class="valor">{{ total_gestores }}</div>
+    </div>
+    <div class="cartao kpi" style="border-top-color: var(--vermelho);">
+      <div class="rotulo">Sincronizações com erro</div>
+      <div class="valor">{{ erros_recentes|length }}</div>
+    </div>
+  </div>
+
+  {% if em_execucao %}
+  <div class="aviso">
+    <strong>Sincronizações em andamento:</strong>
+    {% for sync in em_execucao %}
+      {{ sync.tenant.nome }} ({{ sync.ano }}){% if not forloop.last %}, {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h3 style="margin: 26px 0 10px;">Municípios</h3>
+  {% if tenants %}
+  <div class="cartao" style="padding:0; overflow:hidden;">
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Município</th>
+            <th>Slug</th>
+            <th>Cód. IBGE</th>
+            <th class="numero">Emendas</th>
+            <th class="numero">Pendências PNCP</th>
+            <th>Última atualização</th>
+            <th>Status</th>
+            <th style="text-align:center;">Acessar como gestor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tenants %}
+          <tr>
+            <td><strong>{{ t.nome }}</strong>{% if t.uf %} · {{ t.uf }}{% endif %}</td>
+            <td><a href="/{{ t.slug }}/" target="_blank">/{{ t.slug }}/</a></td>
+            <td>
+              {% if t.codigo_ibge %}{{ t.codigo_ibge }}
+              {% else %}<span class="selo alerta">sem IBGE</span>{% endif %}
+            </td>
+            <td class="numero">{{ t.qtd_emendas }}</td>
+            <td class="numero">
+              {% if t.pendencias %}<span class="selo pendente">{{ t.pendencias }}</span>
+              {% else %}<span class="selo conforme">0</span>{% endif %}
+            </td>
+            <td>{{ t.ultima_sync|date:"d/m/Y H:i"|default:"—" }}</td>
+            <td>
+              {% if t.ativo %}<span class="selo conforme">Ativo</span>
+              {% else %}<span class="selo cancelado">Inativo</span>{% endif %}
+            </td>
+            <td style="text-align:center; white-space:nowrap;">
+              <a class="botao pequeno" href="/admin/{{ t.slug }}/">Painel</a>
+              <a class="botao pequeno secundario" href="/admin/{{ t.slug }}/sincronizacao/">Sincronização</a>
+              <a class="botao pequeno secundario" href="/superadmin/tenants/tenant/{{ t.pk }}/change/">Editar</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="cartao vazio">
+    <div class="icone">🏛</div>
+    <p><strong>Nenhum município cadastrado ainda.</strong><br>
+    <a class="botao" href="/superadmin/tenants/tenant/add/" style="margin-top:10px;">+ Cadastrar o primeiro município</a></p>
+  </div>
+  {% endif %}
+
+  {% if erros_recentes %}
+  <h3 style="margin: 26px 0 10px;">Últimos erros de sincronização</h3>
+  <div class="cartao" style="padding:0; overflow:hidden;">
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <thead>
+          <tr><th>Município</th><th>Exercício</th><th>Quando</th><th>Erro</th></tr>
+        </thead>
+        <tbody>
+          {% for sync in erros_recentes %}
+          <tr>
+            <td>{{ sync.tenant.nome }}</td>
+            <td>{{ sync.ano }}</td>
+            <td>{{ sync.iniciado_em|date:"d/m/Y H:i" }}</td>
+            <td style="max-width:420px; color:var(--vermelho); font-size:.82rem;">
+              {{ sync.mensagem_erro|truncatechars:160 }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -18,13 +18,11 @@ class LoginGlobalTests(TestCase):
         resposta = self.client.get("/login/")
         self.assertContains(resposta, "Entrar")
 
-    def test_superusuario_vai_para_superadmin(self):
+    def test_superusuario_vai_para_painel_do_desenvolvedor(self):
         resposta = self.client.post(
             "/login/", {"username": "dev", "password": "senha123"}
         )
-        self.assertRedirects(
-            resposta, "/superadmin/", target_status_code=200
-        )
+        self.assertRedirects(resposta, "/dev/")
 
     def test_gestor_vai_para_seu_municipio(self):
         resposta = self.client.post(
@@ -43,7 +41,31 @@ class LoginGlobalTests(TestCase):
         resposta = self.client.post(
             "/login/?next=//evil.com", {"username": "dev", "password": "senha123"}
         )
-        self.assertRedirects(resposta, "/superadmin/", target_status_code=200)
+        self.assertRedirects(resposta, "/dev/")
+
+    def test_painel_dev_exige_superusuario(self):
+        # Anônimo: vai para o login único
+        resposta = self.client.get("/dev/")
+        self.assertEqual(resposta.status_code, 302)
+        self.assertTrue(resposta["Location"].startswith("/login/"))
+        # Gestor comum: 404 (não revela a existência da área)
+        self.client.login(username="gestor", password="senha123")
+        self.assertEqual(self.client.get("/dev/").status_code, 404)
+
+    def test_painel_dev_lista_municipios_e_atalhos(self):
+        self.client.login(username="dev", password="senha123")
+        resposta = self.client.get("/dev/")
+        self.assertContains(resposta, "Município Alfa")
+        self.assertContains(resposta, "/admin/alfa/")
+        self.assertContains(resposta, "/admin/alfa/sincronizacao/")
+        self.assertContains(resposta, "/superadmin/tenants/tenant/add/")
+
+    def test_superusuario_acessa_painel_de_qualquer_gestor(self):
+        self.client.login(username="dev", password="senha123")
+        self.assertEqual(self.client.get("/admin/alfa/").status_code, 200)
+        self.assertEqual(
+            self.client.get("/admin/alfa/sincronizacao/").status_code, 200
+        )
 
     def test_area_do_gestor_redireciona_para_login_unico(self):
         resposta = self.client.get("/admin/alfa/")

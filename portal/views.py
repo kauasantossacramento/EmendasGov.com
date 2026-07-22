@@ -98,7 +98,7 @@ def login_global(request):
         if destino.startswith("/") and not destino.startswith("//"):
             return redirect(destino)
         if usuario.is_superuser:
-            return redirect("/superadmin/")
+            return redirect("painel_dev")
         gestoria = usuario.gestorias.select_related("tenant").first()
         if gestoria:
             return redirect("gestor:painel", municipio_slug=gestoria.tenant.slug)

@@ -13,11 +13,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from gestor import views as gestor_views
 from portal import views as portal_views
 
 urlpatterns = [
     path("", portal_views.landing, name="landing"),
     path("login/", portal_views.login_global, name="login_global"),
+    path("dev/", gestor_views.painel_desenvolvedor, name="painel_dev"),
     path("superadmin/", admin.site.urls),
     path("admin/", include("gestor.urls")),
     path("", include("portal.urls")),

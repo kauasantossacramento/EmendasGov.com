@@ -14,7 +14,7 @@ from integrations.services.federal import (
     sincronizar_tenant_em_segundo_plano,
 )
 from portal.models import ConfiguracaoPlataforma
-from tenants.models import Tenant
+from tenants.models import GestorMunicipal, Tenant
 
 from .forms import ConfiguracaoTenantForm, VinculoContratualForm
 
@@ -57,6 +57,52 @@ def login_view(request, municipio_slug):
 def logout_view(request, municipio_slug):
     auth_logout(request)
     return redirect("login_global")
+
+
+def painel_desenvolvedor(request):
+    """
+    Ambiente administrativo do desenvolvedor (/dev/) — somente superusuário.
+
+    Visão de toda a plataforma: municípios com seus números, pendências e
+    última sincronização, atalhos para entrar no painel de qualquer gestor
+    (o superusuário vê tudo o que o gestor vê) e para os cadastros do
+    Django admin (municípios, gestores, configuração da plataforma).
+    """
+    from django.db.models import Count
+
+    from integrations.models import SincronizacaoEmendas
+
+    if not request.user.is_authenticated:
+        return redirect(f"{reverse('login_global')}?next=/dev/")
+    if not request.user.is_superuser:
+        raise Http404("Área restrita ao administrador da plataforma.")
+
+    tenants = list(
+        Tenant.objects.annotate(qtd_emendas=Count("emendas", distinct=True))
+        .order_by("nome")
+    )
+    for tenant in tenants:
+        tenant.ultima_sync = tenant.ultima_atualizacao_dados()
+        tenant.pendencias = Empenho.objects.filter(
+            emenda__tenant=tenant
+        ).pendentes_de_vinculo().count()
+
+    return render(request, "gestor/dev.html", {
+        "tenants": tenants,
+        "total_municipios": len(tenants),
+        "total_emendas": Emenda.objects.count(),
+        "total_gestores": GestorMunicipal.objects.count(),
+        "erros_recentes": (
+            SincronizacaoEmendas.objects.filter(status="erro")
+            .select_related("tenant")
+            .order_by("-iniciado_em")[:8]
+        ),
+        "em_execucao": (
+            SincronizacaoEmendas.objects.filter(status="executando")
+            .select_related("tenant")
+            .order_by("-iniciado_em")[:8]
+        ),
+    })
 
 
 @requer_gestor
