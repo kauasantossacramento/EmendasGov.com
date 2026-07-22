@@ -7,6 +7,32 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def _carregar_dotenv(caminho):
+    """
+    Carrega variáveis de um arquivo .env na raiz do projeto (se existir).
+
+    Aceita linhas no formato CHAVE=valor, com ou sem prefixo "export" e
+    com ou sem aspas no valor. Variáveis já definidas no ambiente têm
+    prioridade e não são sobrescritas. O .env está no .gitignore — nunca
+    commite chaves.
+    """
+    if not caminho.exists():
+        return
+    for linha in caminho.read_text(encoding="utf-8").splitlines():
+        linha = linha.strip()
+        if not linha or linha.startswith("#"):
+            continue
+        if linha.startswith("export "):
+            linha = linha[len("export "):]
+        chave, separador, valor = linha.partition("=")
+        if not separador:
+            continue
+        os.environ.setdefault(chave.strip(), valor.strip().strip('"').strip("'"))
+
+
+_carregar_dotenv(BASE_DIR / ".env")
+
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-troque-esta-chave-em-producao",
